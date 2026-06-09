@@ -1,0 +1,109 @@
+import torch
+from typing import List, Dict, Tuple, Any
+import math
+
+from problem import Problem
+
+class array_sort(Problem):
+    """General array sorting problem (integer arrays)."""
+
+    is_exact = True
+
+    parameters = [
+        {"name": "a", "type": "int", "pointer": True, "const": True},
+        {"name": "b", "type": "int", "pointer": True, "const": False},
+        {"name": "n", "type": "size_t", "pointer": False, "const": False},
+    ]
+
+    def __init__(self):
+        super().__init__(name="array-sort")
+
+    def reference_solution(self, input_array: torch.Tensor) -> torch.Tensor:
+        """PyTorch implementation of array sorting on integers."""
+        with torch.no_grad():
+            sorted_array, _ = torch.sort(input_array)
+            return sorted_array
+
+    def generate_test_cases(self) -> List[Dict[str, Any]]:
+        dtype = self.param_dtype(0)
+
+        sizes = [16384, 32768, 65536, 131072, 262144]
+
+        test_cases = []
+        for size in sizes:
+            name = f"size_{size}"
+            seed = Problem.get_seed(f"{self.name}_{name}_{(size,)}")
+            test_cases.append(
+                {
+                    "name": name,
+                    "size": size,
+                    "create_inputs": (
+                        lambda s=size, seed=seed: (
+                            *(lambda g: (
+                                torch.randint(
+                                    low=1,
+                                    high=int(1e9),
+                                    size=(s,),
+                                    device="cuda",
+                                    dtype=torch.int32,
+                                    generator=g,
+                                ),
+                            ))(torch.Generator(device="cuda").manual_seed(seed)),
+                        )
+                    ),
+                }
+            )
+        return test_cases
+
+    def generate_sample(self) -> Dict[str, Any]:
+        """
+        Small sample (integers).
+        """
+        dtype = self.param_dtype(0)
+
+        size = 16
+        return {
+            "name": "Sample (size=16)",
+            "size": size,
+            "create_inputs": (
+                lambda s=size: (
+                    torch.randint(0, 100, (s,), device="cuda", dtype=torch.int32),
+                )
+            ),
+        }
+
+    def verify_result(
+        self,
+        expected_output: torch.Tensor,
+        actual_output: torch.Tensor,
+    ) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Verify correctness with exact integer equality.
+        """
+        is_equal = torch.equal(actual_output, expected_output)
+
+        if is_equal:
+            return True, {}
+
+        is_sorted = bool(torch.all(actual_output[:-1] <= actual_output[1:]).item())
+        diff_mask = actual_output != expected_output
+        idx = torch.nonzero(diff_mask).flatten()
+
+        sample_diffs = {}
+        for i in idx[:5].tolist():
+            sample_diffs[f"index_{i}"] = {
+                "expected": int(expected_output[i].item()),
+                "actual": int(actual_output[i].item()),
+            }
+
+        debug_info = {
+            "is_sorted": is_sorted,
+            "total_mismatches": int(idx.numel()),
+            "sample_differences": sample_diffs,
+        }
+        return False, debug_info
+
+
+    def get_extra_params(self, test_case: Dict[str, Any]) -> List[Any]:
+        """Extra parameters for CUDA call (just the size)."""
+        return [test_case["size"]]

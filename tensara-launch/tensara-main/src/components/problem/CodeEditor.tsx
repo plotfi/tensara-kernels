@@ -1,0 +1,1312 @@
+import {
+  Box,
+  Flex,
+  Text,
+  Spinner,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
+  IconButton,
+  Button,
+  Tooltip,
+} from "@chakra-ui/react";
+import { keyframes } from "@emotion/react";
+import Editor, { type Monaco } from "@monaco-editor/react";
+import { type ProgrammingLanguage } from "~/types/misc";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
+import { LANGUAGE_DISPLAY_NAMES } from "~/constants/language";
+import { FiX, FiAlertTriangle } from "react-icons/fi";
+import type { editor as MonacoEditor } from "monaco-editor";
+import { createPtxSourceMap, type PtxSourceMap } from "~/utils/ptx";
+
+interface CodeEditorProps {
+  code: string;
+  setCode: (code: string) => void;
+  selectedLanguage: ProgrammingLanguage;
+  toolbar?: ReactNode;
+  codeFontSize?: number;
+  isEditable?: boolean;
+  ptxContent?: string | null;
+  sassContent?: string | null;
+  enablePtxSassView?: boolean;
+  ptxDirty?: boolean;
+  sassDirty?: boolean;
+  enableVimMode?: boolean;
+  onToggleVimMode?: (enabled: boolean) => void;
+  embedded?: boolean;
+  isPtxSassOpen?: boolean;
+  onPtxSassOpenChange?: (open: boolean) => void;
+}
+
+const PTX_LINE_SEARCH_RADIUS = 50;
+
+function findClosestPtxLines(
+  map: PtxSourceMap,
+  targetLine: number,
+  maxLine: number
+): {
+  lines: number[] | null;
+  matchedSourceLine: number | null;
+} {
+  if (map[targetLine]) {
+    return { lines: map[targetLine] ?? null, matchedSourceLine: targetLine };
+  }
+
+  for (let offset = 1; offset <= PTX_LINE_SEARCH_RADIUS; offset++) {
+    const lower = targetLine - offset;
+    if (lower > 0 && map[lower]) {
+      return { lines: map[lower] ?? null, matchedSourceLine: lower };
+    }
+    const upper = targetLine + offset;
+    if (upper <= maxLine && map[upper]) {
+      return { lines: map[upper] ?? null, matchedSourceLine: upper };
+    }
+  }
+
+  return { lines: null, matchedSourceLine: null };
+}
+
+function setupMonaco(monaco: Monaco) {
+  monaco.editor.defineTheme("tensara-dark", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      // Base colors
+      { token: "", foreground: "cccccc" },
+      { token: "comment", foreground: "6A9955", fontStyle: "italic" },
+
+      // Keywords and control flow (common to all languages)
+      { token: "keyword", foreground: "569cd6" },
+      { token: "keyword.control", foreground: "569cd6" },
+
+      // Types and variables (C++/CUDA)
+      { token: "type", foreground: "4EC9B0" },
+      { token: "variable", foreground: "cccccc" },
+      { token: "variable.parameter", foreground: "9CDCFE" },
+
+      // Classes, structs, and interfaces
+      { token: "class", foreground: "4EC9B0" },
+      { token: "struct", foreground: "4EC9B0" },
+      { token: "interface", foreground: "4EC9B0" },
+
+      // Functions and methods
+      { token: "function", foreground: "4FC1FF" },
+      { token: "function.declaration", foreground: "4FC1FF" },
+
+      // Strings and numbers
+      { token: "string", foreground: "CE9178" },
+      { token: "number", foreground: "B5CEA8" },
+
+      // Preprocessor directives (C++/CUDA)
+      { token: "delimiter.directive", foreground: "569cd6" },
+      { token: "keyword.directive", foreground: "569cd6" },
+
+      // Constants
+      { token: "constant", foreground: "569cd6" },
+
+      // Operators
+      { token: "operator", foreground: "D4D4D4" },
+
+      // C++/CUDA specific tokens
+      { token: "identifier.cpp", foreground: "D4D4D4" },
+
+      // CUDA specific tokens
+      { token: "keyword.cuda", foreground: "C586C0" }, // CUDA specific keywords
+      { token: "identifier.cuda", foreground: "DCDCAA" }, // CUDA specific identifiers
+
+      // Python specific tokens
+      { token: "keyword.python", foreground: "569cd6" },
+      { token: "function.python", foreground: "4FC1FF" },
+      { token: "class.python", foreground: "4EC9B0" },
+      { token: "decorator.python", foreground: "DCDCAA" },
+
+      // Triton specific tokens
+      { token: "keyword.triton", foreground: "C586C0" },
+      { token: "function.triton", foreground: "4FC1FF" },
+      { token: "decorator.triton", foreground: "DCDCAA" },
+
+      // Mojo specific tokens
+      { token: "keyword.mojo", foreground: "569cd6" },
+      { token: "type.mojo", foreground: "4EC9B0" },
+      { token: "function.mojo", foreground: "C586C0" },
+      { token: "decorator.mojo", foreground: "DCDCAA" },
+      { token: "struct.mojo", foreground: "4EC9B0" },
+    ],
+    colors: {
+      // Editor UI colors - darker black background
+      "editor.background": "#111111",
+      "editor.foreground": "#D4D4D4",
+      "editorCursor.foreground": "#FFFFFF",
+      "editor.lineHighlightBackground": "#1A1A1A",
+      "editorLineNumber.foreground": "#858585",
+      "editor.selectionBackground": "#264F78",
+      "editor.inactiveSelectionBackground": "#3A3D41",
+      "editorIndentGuide.background": "#303030",
+
+      // Syntax highlighting
+      "editor.wordHighlightBackground": "#575757B8",
+      "editor.wordHighlightStrongBackground": "#004972B8",
+
+      // UI elements
+      "editorGroupHeader.tabsBackground": "#141414",
+      "tab.activeBackground": "#181818",
+      "tab.inactiveBackground": "#1C1C1C",
+      "tab.activeForeground": "#FFFFFF",
+      "tab.inactiveForeground": "#AAAAAA",
+
+      // Borders and dividers
+      "editorGroup.border": "#303030",
+      "tab.border": "#141414",
+
+      // Status bar
+      "statusBar.background": "#141414",
+      "statusBar.foreground": "#D4D4D4",
+
+      // Activity bar
+      "activityBar.background": "#181818",
+      "activityBar.foreground": "#D4D4D4",
+
+      // Panel
+      "panel.background": "#111111",
+      "panel.border": "#303030",
+
+      // Terminal
+      "terminal.background": "#111111",
+      "terminal.foreground": "#D4D4D4",
+
+      // Scrollbar
+      "scrollbarSlider.background": "#383838AA",
+      "scrollbarSlider.hoverBackground": "#454545AA",
+      "scrollbarSlider.activeBackground": "#505050AA",
+    },
+  });
+
+  // Register custom tokenizer for CUDA C++ specifics
+  monaco.languages.setMonarchTokensProvider("cpp", {
+    defaultToken: "",
+
+    // Common tokens
+    tokenizer: {
+      root: [
+        // CUDA specific keywords
+        [
+          /\b(threadIdx|blockIdx|blockDim|gridDim|warpSize|__global__|__device__|__host__|__shared__)\b/,
+          "keyword.cuda",
+        ],
+
+        // Preprocessor directives
+        [/#\s*include/, "keyword.directive"],
+        [/<.*>/, "string"],
+
+        // Comments
+        [/\/\/.*$/, "comment"],
+        [/\/\*/, "comment", "@comment"],
+
+        // Keywords
+        [
+          /\b(if|else|for|while|do|switch|case|default|break|continue|return|void|int|float|double|char|unsigned|const|static|extern|struct|union|enum|typedef|class|template|namespace|using|new|delete|true|false|nullptr)\b/,
+          "keyword",
+        ],
+
+        // Types
+        [/\b(int|float|double|char|bool|void|size_t)\b/, "type"],
+        [/\b(float[1-4]|int[1-4]|uint[1-4]|dim3)\b/, "type"],
+
+        // Functions
+        [/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/, "function"],
+
+        // External keyword
+        [/\bextern\b/, "keyword.extern"],
+
+        // Strings
+        [/"([^"\\]|\\.)*$/, "string.invalid"],
+        [/"/, "string", "@string"],
+
+        // Numbers
+        [/\b\d+\.\d+([eE][\-+]?\d+)?\b/, "number.float"],
+        [/\b0[xX][0-9a-fA-F]+\b/, "number.hex"],
+        [/\b\d+\b/, "number"],
+
+        // Operators
+        [/[{}()\[\]]/, "@brackets"],
+        [/[<>=%&|+\-*/~^]+/, "operator"],
+
+        // Identifiers
+        [/[a-zA-Z_]\w*/, "identifier"],
+      ],
+
+      comment: [
+        [/[^/*]+/, "comment"],
+        [/\/\*/, "comment", "@push"],
+        [/\*\//, "comment", "@pop"],
+        [/[/*]/, "comment"],
+      ],
+
+      string: [
+        [/[^\\"]+/, "string"],
+        [/\\./, "string.escape"],
+        [/"/, "string", "@pop"],
+      ],
+    },
+  });
+
+  // Register Mojo language tokenizer
+  monaco.languages.register({ id: "mojo" });
+  monaco.languages.setMonarchTokensProvider("mojo", {
+    defaultToken: "",
+    tokenizer: {
+      root: [
+        // Comments
+        [/#.*$/, "comment"],
+        [/'''/, "comment", "@multilineString"],
+        [/"""/, "comment", "@multilineDocstring"],
+        [/\/\*/, "comment", "@comment"],
+
+        // Decorators
+        [/@[a-zA-Z_][\w$]*/, "decorator"],
+
+        // Keywords
+        [
+          /\b(fn|struct|def|var|let|alias|trait|impl|for|while|if|else|elif|return|break|continue|match|and|or|not|in|is|as|from|import|with|as|try|except|finally|raise|assert|await|async|del|global|nonlocal|lambda|pass|yield|None|True|False|Self|self|owned|inout|mutates|borrowed|raises)\b/,
+          "keyword",
+        ],
+
+        // Types
+        [
+          /\b(Int|UInt|Int8|Int16|Int32|Int64|UInt8|UInt16|UInt32|UInt64|Float16|Float32|Float64|Bool|String|SIMD|DType|Scalar|StringLiteral|AnyType|NoneType)\b/,
+          "type",
+        ],
+
+        // Special control keywords
+        [/\b(return|yield|raise|break|continue|pass)\b/, "keyword.control"],
+
+        // Functions
+        [/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/, "function.mojo"],
+
+        // Strings
+        [/"([^"\\]|\\.)*$/, "string.invalid"],
+        [/'([^'\\]|\\.)*$/, "string.invalid"],
+        [/"/, "string", "@string_double"],
+        [/'/, "string", "@string_single"],
+
+        // Numbers
+        [/\b(0[xX][0-9a-fA-F]+)\b/, "number.hex"],
+        [/\b(0[oO][0-7]+)\b/, "number.octal"],
+        [/\b(0[bB][01]+)\b/, "number.binary"],
+        [/\b(\d+\.\d+([eE][\-+]?\d+)?)\b/, "number.float"],
+        [/\b(\d+([eE][\-+]?\d+)?)\b/, "number"],
+
+        // Operators
+        [/[{}()\[\]]/, "@brackets"],
+        [/[<>=%&|+\-*/~^]+/, "operator"],
+
+        // Identifiers
+        [/[a-zA-Z_]\w*/, "identifier"],
+      ],
+
+      comment: [
+        [/[^/*]+/, "comment"],
+        [/\/\*/, "comment", "@push"],
+        [/\*\//, "comment", "@pop"],
+        [/[/*]/, "comment"],
+      ],
+
+      multilineString: [
+        [/[^']+/, "comment"],
+        [/'''/, "comment", "@pop"],
+        [/'/, "comment"],
+      ],
+
+      multilineDocstring: [
+        [/[^"]+/, "comment"],
+        [/"""/, "comment", "@pop"],
+        [/"/, "comment"],
+      ],
+
+      string_double: [
+        [/[^"\\]+/, "string"],
+        [/\\./, "string.escape"],
+        [/"/, "string", "@pop"],
+      ],
+
+      string_single: [
+        [/[^'\\]+/, "string"],
+        [/\\./, "string.escape"],
+        [/'/, "string", "@pop"],
+      ],
+    },
+  });
+
+  // Configure Mojo as a Python-like language for editor features
+  // (so toggle line/comment uses `#` and triple-quotes are recognized
+  // for block docstrings). This makes Cmd+/ behave Pythonically.
+  monaco.languages.setLanguageConfiguration("mojo", {
+    comments: {
+      lineComment: "#",
+      blockComment: ["'''", "'''"],
+    },
+    brackets: [
+      ["{", "}"],
+      ["[", "]"],
+      ["(", ")"],
+    ],
+    autoClosingPairs: [
+      { open: "{", close: "}" },
+      { open: "[", close: "]" },
+      { open: "(", close: ")" },
+      { open: '"', close: '"' },
+      { open: "'", close: "'" },
+    ],
+    surroundingPairs: [
+      { open: "{", close: "}" },
+      { open: "[", close: "]" },
+      { open: "(", close: ")" },
+      { open: '"', close: '"' },
+      { open: "'", close: "'" },
+    ],
+    // Basic indentation rules: increase indent after lines that end with
+    // a colon (e.g. function/if/for blocks) or an opening brace. Decrease
+    // for common dedent keywords. We also provide an onEnterRule to
+    // automatically indent when pressing Enter after a block-open line.
+    indentationRules: {
+      increaseIndentPattern: /.*:\s*$|.*\{\s*$/,
+      decreaseIndentPattern: /^\s*(?:elif|else|except|finally)\b.*:\s*$|^\s*\}/,
+    },
+    onEnterRules: [
+      {
+        // Indent after a line that ends with ':' (Python-like blocks)
+        beforeText: /.*:\s*$/,
+        action: { indentAction: monaco.languages.IndentAction.Indent },
+      },
+      {
+        // If the previous line opens a brace, indent as well
+        beforeText: /.*\{\s*$/,
+        action: { indentAction: monaco.languages.IndentAction.Indent },
+      },
+    ],
+  });
+
+  // Register PTX language
+  monaco.languages.register({ id: "ptx" });
+  monaco.languages.setMonarchTokensProvider("ptx", {
+    defaultToken: "",
+    tokenizer: {
+      root: [
+        // Comments
+        [/\/\/.*$/, "comment"],
+        [/\/\*/, "comment", "@comment"],
+
+        // Directives: .version, .target, .reg, .entry, .func, etc.
+        [
+          /\.(version|target|address_size|visible|entry|func|param|reg|const|global|local|shared|tex|surf|sampler|array|struct|union|align|section|file|loc|pragma|extern|weak|common|b8|b16|b32|b64|u8|u16|u32|u64|s8|s16|s32|s64|f16|f32|f64|pred)\b/,
+          "keyword.directive",
+        ],
+
+        // PTX instructions (common ones)
+        [
+          /\b(add|sub|mul|mad|div|rem|abs|neg|min|max|setp|set|selp|slct|cvt|mov|shl|shr|and|or|xor|not|clz|popc|bfind|fma|rcp|sqrt|rsqrt|sin|cos|lg2|ex2|tanh|sad|dp4a|dp2a|ld|st|prefetch|prefetchu|isspacep|cvta|cp|atom|red|bar|barrier|bra|call|ret|brkpt|nop|exit|trap|vote|activemask|alloca|bfe|bfi|bfind|brev|clz|cos|ex2|fma|isspacep|lg2|mad24|mul24|popc|prmt|rcp|red|rem|rsqrt|sad|sin|sqrt|tanh|testp|tex|tld4|trap|vabsdiff|vadd|vadd2|vadd4|vmad|vmax|vmin|vset|vshl|vshr|vsub|vsub2|vsub4)\b/,
+          "keyword.instruction",
+        ],
+
+        // Predicates: @%p0, @!%p1
+        [/@!?%p\d+/, "keyword.predicate"],
+
+        // Registers: %r1, %rd2, %f3, %p1, %bar0, etc.
+        [/%[a-zA-Z]*\d+/, "variable.register"],
+
+        // Labels (jump targets): $L1:, $L2:
+        [/\$[a-zA-Z_][a-zA-Z0-9_]*\s*:/, "label"],
+
+        // Types: .f32, .u64, .b16, etc.
+        [
+          /\.(b8|b16|b32|b64|u8|u16|u32|u64|s8|s16|s32|s64|f16|f32|f64|pred)\b/,
+          "type",
+        ],
+
+        // Strings
+        [/"([^"\\]|\\.)*$/, "string.invalid"],
+        [/"/, "string", "@string"],
+
+        // Numbers (hex, decimal, float)
+        [/\b0[xX][0-9a-fA-F]+\b/, "number.hex"],
+        [/\b\d+\.\d+([eE][\-+]?\d+)?[fF]?\b/, "number.float"],
+        [/\b\d+\b/, "number"],
+
+        // Operators
+        [/[{}()\[\]]/, "@brackets"],
+        [/[<>=%&|+\-*/~^]+/, "operator"],
+
+        // Identifiers
+        [/[a-zA-Z_][a-zA-Z0-9_]*/, "identifier"],
+      ],
+
+      comment: [
+        [/[^/*]+/, "comment"],
+        [/\/\*/, "comment", "@push"],
+        [/\*\//, "comment", "@pop"],
+        [/[/*]/, "comment"],
+      ],
+
+      string: [
+        [/[^"\\]+/, "string"],
+        [/\\./, "string.escape"],
+        [/"/, "string", "@pop"],
+      ],
+    },
+  });
+
+  monaco.languages.setMonarchTokensProvider("cpp", {
+    defaultToken: "",
+
+    // Common tokens
+    tokenizer: {
+      root: [
+        // CUDA specific keywords
+        [
+          /\b(threadIdx|blockIdx|blockDim|gridDim|warpSize|__global__|__device__|__host__|__shared__)\b/,
+          "keyword.cuda",
+        ],
+
+        // Preprocessor directives
+        [/#\s*include/, "keyword.directive"],
+        [/<.*>/, "string"],
+
+        // Comments
+        [/\/\/.*$/, "comment"],
+        [/\/\*/, "comment", "@comment"],
+
+        // Keywords
+        [
+          /\b(if|else|for|while|do|switch|case|default|break|continue|return|void|int|float|double|char|unsigned|const|static|extern|struct|union|enum|typedef|class|template|namespace|using|new|delete|true|false|nullptr)\b/,
+          "keyword",
+        ],
+
+        // Types
+        [/\b(int|float|double|char|bool|void|size_t)\b/, "type"],
+        [/\b(float[1-4]|int[1-4]|uint[1-4]|dim3)\b/, "type"],
+
+        // Functions
+        [/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/, "function"],
+
+        // External keyword
+        [/\bextern\b/, "keyword.extern"],
+
+        // Strings
+        [/"([^"\\]|\\.)*$/, "string.invalid"],
+        [/"/, "string", "@string"],
+
+        // Numbers
+        [/\b\d+\.\d+([eE][\-+]?\d+)?\b/, "number.float"],
+        [/\b0[xX][0-9a-fA-F]+\b/, "number.hex"],
+        [/\b\d+\b/, "number"],
+
+        // Operators
+        [/[{}()\[\]]/, "@brackets"],
+        [/[<>=%&|+\-*/~^]+/, "operator"],
+
+        // Identifiers
+        [/[a-zA-Z_]\w*/, "identifier"],
+      ],
+
+      comment: [
+        [/[^/*]+/, "comment"],
+        [/\/\*/, "comment", "@push"],
+        [/\*\//, "comment", "@pop"],
+        [/[/*]/, "comment"],
+      ],
+
+      string: [
+        [/[^\\"]+/, "string"],
+        [/\\./, "string.escape"],
+        [/"/, "string", "@pop"],
+      ],
+    },
+  });
+}
+
+const pulseAnimation = keyframes`
+  0% { opacity: 0.6; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.6; }
+`;
+
+type EditorContentOptions = {
+  onMount?: (
+    editorInstance: MonacoEditor.IStandaloneCodeEditor,
+    monacoInstance: Monaco
+  ) => void;
+};
+
+const CodeEditor = ({
+  code,
+  setCode,
+  selectedLanguage,
+  toolbar,
+  codeFontSize = 14,
+  isEditable = true,
+  ptxContent,
+  sassContent,
+  enablePtxSassView = false,
+  ptxDirty,
+  sassDirty,
+  enableVimMode = false,
+  onToggleVimMode,
+  embedded = false,
+  isPtxSassOpen,
+  onPtxSassOpenChange,
+}: CodeEditorProps) => {
+  const [isEditorLoading, setIsEditorLoading] = useState(true);
+  const [internalSplitViewOpen, setInternalSplitViewOpen] = useState(false);
+  const splitViewControlled = typeof isPtxSassOpen === "boolean";
+  const isSplitViewOpen = splitViewControlled
+    ? isPtxSassOpen
+    : internalSplitViewOpen;
+  const setIsSplitViewOpen = useCallback(
+    (open: boolean) => {
+      if (splitViewControlled) {
+        onPtxSassOpenChange?.(open);
+        return;
+      }
+      setInternalSplitViewOpen(open);
+    },
+    [splitViewControlled, onPtxSassOpenChange]
+  );
+  const codeEditorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
+  const ptxEditorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
+  const codeCursorDisposableRef = useRef<{ dispose: () => void } | null>(null);
+  const vimModeAdapterRef = useRef<{
+    dispose: () => void;
+    getOption?: (key: string) => unknown;
+  } | null>(null);
+  const vimStatusContainerRef = useRef<HTMLDivElement | null>(null);
+  const [codeEditorInstance, setCodeEditorInstance] =
+    useState<MonacoEditor.IStandaloneCodeEditor | null>(null);
+  const pendingPtxLinesRef = useRef<{
+    hasValue: boolean;
+    lines: number[] | null;
+  }>({
+    hasValue: false,
+    lines: null,
+  });
+  const ptxDecorationsRef = useRef<string[]>([]);
+  const [currentCodeLine, setCurrentCodeLine] = useState<number | null>(null);
+  const [ptxSourceMap, setPtxSourceMap] = useState<PtxSourceMap | null>(null);
+  const [maxMappedSourceLine, setMaxMappedSourceLine] = useState(0);
+  const debugTag = "[CodeEditor PTX]";
+  const hasPtxSassContent = enablePtxSassView && (ptxContent ?? sassContent);
+  const disposeVimMode = useCallback(() => {
+    vimModeAdapterRef.current?.dispose();
+    vimModeAdapterRef.current = null;
+    if (vimStatusContainerRef.current) {
+      vimStatusContainerRef.current.textContent = "";
+    }
+  }, []);
+
+  const initializeVimMode = useCallback(
+    async (editorInstance?: MonacoEditor.IStandaloneCodeEditor | null) => {
+      if (!enableVimMode) return;
+      const targetEditor =
+        editorInstance ?? codeEditorInstance ?? codeEditorRef.current;
+      if (!targetEditor) return;
+      if (vimModeAdapterRef.current) return;
+      if (typeof window === "undefined") return;
+
+      try {
+        const monacoVimModule = await import("monaco-vim");
+        const { initVimMode } = monacoVimModule;
+        if (typeof initVimMode !== "function") {
+          console.warn("monaco-vim initVimMode is unavailable");
+          return;
+        }
+
+        const adapter = initVimMode(
+          targetEditor,
+          vimStatusContainerRef.current
+        );
+        vimModeAdapterRef.current = adapter;
+
+        if (isEditable && adapter?.getOption) {
+          const originalGetOption = adapter.getOption.bind(adapter);
+          adapter.getOption = (key: string) => {
+            if (key === "readOnly") {
+              return false;
+            }
+            return originalGetOption(key);
+          };
+        }
+      } catch (error) {
+        console.error("Failed to initialize Vim mode", error);
+      }
+    },
+    [codeEditorInstance, enableVimMode, isEditable]
+  );
+
+  const highlightPtxLines = useCallback(
+    (lineNumbers: number[] | null) => {
+      const editorInstance = ptxEditorRef.current;
+      if (!editorInstance) {
+        pendingPtxLinesRef.current = { hasValue: true, lines: lineNumbers };
+        // console.log(
+        //   `${debugTag} PTX editor not ready, queueing lines`,
+        //   lineNumbers
+        // );
+        return;
+      }
+
+      pendingPtxLinesRef.current = { hasValue: false, lines: null };
+
+      const decorations =
+        lineNumbers?.map((line) => ({
+          range: {
+            startLineNumber: line,
+            startColumn: 1,
+            endLineNumber: line,
+            endColumn: 1,
+          },
+          options: {
+            isWholeLine: true,
+            className: "ptx-highlight-line",
+            linesDecorationsClassName: "ptx-gutter-highlight",
+          },
+        })) ?? [];
+
+      ptxDecorationsRef.current = editorInstance.deltaDecorations(
+        ptxDecorationsRef.current,
+        decorations
+      );
+
+      if (lineNumbers && lineNumbers.length > 0) {
+        const firstLine = lineNumbers[0];
+        if (firstLine !== undefined) {
+          editorInstance.revealLineInCenter(firstLine);
+        }
+      }
+
+      // if (lineNumbers && lineNumbers.length > 0) {
+      //   console.log(`${debugTag} Highlighting PTX lines:`, lineNumbers);
+      // } else {
+      //   console.log(`${debugTag} Clearing PTX highlights`);
+      // }
+    },
+    [debugTag]
+  );
+
+  const handleCodeEditorMount = useCallback(
+    (
+      editorInstance: MonacoEditor.IStandaloneCodeEditor,
+      _monacoInstance?: Monaco
+    ) => {
+      disposeVimMode();
+      codeEditorRef.current = editorInstance;
+      setCodeEditorInstance(editorInstance);
+      codeCursorDisposableRef.current?.dispose();
+      const updateCursorLine = () => {
+        const position = editorInstance.getPosition();
+        const lineNumber = position?.lineNumber ?? null;
+        setCurrentCodeLine(lineNumber);
+        // console.log(`${debugTag} Cursor moved to line`, lineNumber);
+      };
+
+      codeCursorDisposableRef.current =
+        editorInstance.onDidChangeCursorPosition(() => {
+          updateCursorLine();
+        });
+      updateCursorLine();
+
+      editorInstance.onDidDispose(() => {
+        codeCursorDisposableRef.current?.dispose();
+        codeCursorDisposableRef.current = null;
+        codeEditorRef.current = null;
+        setCodeEditorInstance(null);
+        setCurrentCodeLine(null);
+        disposeVimMode();
+        // console.log(`${debugTag} Code editor disposed`);
+      });
+    },
+    [debugTag, disposeVimMode, enableVimMode, initializeVimMode]
+  );
+
+  const handlePtxEditorMount = useCallback(
+    (
+      editorInstance: MonacoEditor.IStandaloneCodeEditor,
+      _monacoInstance?: Monaco
+    ) => {
+      ptxEditorRef.current = editorInstance;
+      editorInstance.onDidDispose(() => {
+        ptxEditorRef.current = null;
+        ptxDecorationsRef.current = [];
+      });
+
+      if (pendingPtxLinesRef.current.hasValue) {
+        // console.log(
+        //   `${debugTag} PTX editor mounted; replaying queued highlights`,
+        //   pendingPtxLinesRef.current.lines
+        // );
+        highlightPtxLines(pendingPtxLinesRef.current.lines);
+      } else if (ptxSourceMap && currentCodeLine != null) {
+        // console.log(
+        //   `${debugTag} PTX editor mounted; applying map for line`,
+        //   currentCodeLine
+        // );
+        highlightPtxLines(ptxSourceMap[currentCodeLine] ?? null);
+      } else {
+        // console.log(
+        //   `${debugTag} PTX editor mounted; no map/cursor available yet`
+        // );
+        highlightPtxLines(null);
+      }
+    },
+    [highlightPtxLines, ptxSourceMap, currentCodeLine, debugTag]
+  );
+
+  useEffect(() => {
+    if (!enablePtxSassView && isSplitViewOpen) {
+      setIsSplitViewOpen(false);
+    }
+  }, [enablePtxSassView, isSplitViewOpen, setIsSplitViewOpen]);
+
+  useEffect(() => {
+    return () => {
+      codeCursorDisposableRef.current?.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!enableVimMode) {
+      disposeVimMode();
+      return;
+    }
+    if (codeEditorInstance) {
+      initializeVimMode(codeEditorInstance).catch((error) => {
+        console.error("Failed to toggle Vim mode", error);
+      });
+    }
+  }, [codeEditorInstance, disposeVimMode, enableVimMode, initializeVimMode]);
+
+  useEffect(() => {
+    return () => {
+      disposeVimMode();
+    };
+  }, [disposeVimMode]);
+
+  useEffect(() => {
+    if (!enablePtxSassView || !ptxContent) {
+      setPtxSourceMap(null);
+      highlightPtxLines(null);
+      // console.log(`${debugTag} PTX pane disabled or content missing`);
+      setMaxMappedSourceLine(0);
+      return;
+    }
+
+    // console.log(`${debugTag} Generating PTX map`);
+    const map = createPtxSourceMap(ptxContent);
+    const mapKeys = Object.keys(map).map((key) => Number(key));
+    const entryCount = mapKeys.length;
+    const maxLine = entryCount > 0 ? Math.max(...mapKeys) : 0;
+    // console.log(
+    //   `${debugTag} PTX map entries: ${entryCount}, max source line: ${maxLine}`
+    // );
+    setPtxSourceMap(map);
+    setMaxMappedSourceLine(maxLine);
+  }, [enablePtxSassView, ptxContent, highlightPtxLines, debugTag]);
+
+  useEffect(() => {
+    if (!ptxSourceMap || currentCodeLine == null) {
+      highlightPtxLines(null);
+      // if (!ptxSourceMap) {
+      //   console.log(`${debugTag} Waiting for PTX map before highlighting`);
+      // } else {
+      //   console.log(`${debugTag} Cursor unset; skipping PTX highlight`);
+      // }
+      return;
+    }
+
+    const { lines, matchedSourceLine } = findClosestPtxLines(
+      ptxSourceMap,
+      currentCodeLine,
+      maxMappedSourceLine
+    );
+    if (lines) {
+      if (matchedSourceLine !== currentCodeLine) {
+        // console.log(
+        //   `${debugTag} Source line ${currentCodeLine} mapped via nearby line ${matchedSourceLine}`
+        // );
+      } else {
+        // console.log(`${debugTag} Source line ${currentCodeLine} maps directly`);
+      }
+      // console.log(`${debugTag} Highlighting PTX lines:`, lines);
+    } else {
+      // console.log(
+      //   `${debugTag} No PTX lines found within ±${PTX_LINE_SEARCH_RADIUS} lines`
+      // );
+    }
+    highlightPtxLines(lines);
+  }, [
+    ptxSourceMap,
+    currentCodeLine,
+    highlightPtxLines,
+    debugTag,
+    maxMappedSourceLine,
+  ]);
+
+  const editorContent = (
+    content: string,
+    language: string,
+    readOnly: boolean,
+    extraOptions?: EditorContentOptions
+  ) => (
+    <>
+      {isEditorLoading && (
+        <Flex
+          position="absolute"
+          w="100%"
+          h="100%"
+          zIndex="1"
+          flexDirection="column"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Box
+            position="absolute"
+            top="0"
+            left="0"
+            right="0"
+            bottom="0"
+            bgGradient="linear(to-b, brand.dark, #191919)"
+            animation={`${pulseAnimation} 2s infinite ease-in-out`}
+          />
+
+          <Spinner
+            size="xl"
+            thickness="3px"
+            speed="0.8s"
+            color="brand.navbar"
+            zIndex="2"
+            mb="3"
+          />
+
+          <Text color="gray.300" fontFamily="mono" fontSize="sm" zIndex="2">
+            Loading editor...
+          </Text>
+
+          <Box mt="8" maxW="80%" zIndex="2">
+            <Text
+              color="gray.500"
+              fontSize="xs"
+              textAlign="center"
+              fontFamily="mono"
+            >
+              {LANGUAGE_DISPLAY_NAMES[selectedLanguage]} environment
+            </Text>
+          </Box>
+        </Flex>
+      )}
+
+      <Editor
+        height="100%"
+        theme="tensara-dark"
+        value={content}
+        onChange={(value) => !readOnly && isEditable && setCode(value ?? "")}
+        language={language}
+        beforeMount={setupMonaco}
+        onMount={(editorInstance, monacoInstance) => {
+          setIsEditorLoading(false);
+          extraOptions?.onMount?.(editorInstance, monacoInstance);
+        }}
+        loading={null}
+        options={{
+          minimap: { enabled: false },
+          fontSize: codeFontSize,
+          lineNumbers: "on",
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          padding: { top: 8, bottom: 8 },
+          fontFamily: "JetBrains Mono, monospace",
+          readOnly: readOnly,
+        }}
+      />
+    </>
+  );
+
+  const codeEditorPanel = (
+    <Box
+      w="100%"
+      h="100%"
+      position="relative"
+      borderRadius="inherit"
+      overflow="hidden"
+      bg="#111111"
+    >
+      {editorContent(
+        code,
+        selectedLanguage === "cuda"
+          ? "cpp"
+          : selectedLanguage === "mojo"
+            ? "mojo"
+            : "python",
+        !isEditable,
+        { onMount: handleCodeEditorMount }
+      )}
+      {enableVimMode && (
+        <Box
+          ref={vimStatusContainerRef}
+          position="absolute"
+          bottom="8px"
+          left="8px"
+          px={3}
+          py={1}
+          bg="rgba(26, 26, 26, 0.8)"
+          border="1px solid #2A2A2A"
+          borderRadius="md"
+          fontSize="12px"
+          fontFamily="JetBrains Mono, monospace"
+          color="#CECECE"
+          pointerEvents="none"
+          minW="90px"
+        />
+      )}
+      {isEditable && onToggleVimMode && !toolbar ? (
+        <Box
+          position="absolute"
+          top="8px"
+          right="8px"
+          display="flex"
+          gap="8px"
+          zIndex={10}
+          pointerEvents="none"
+        >
+          {hasPtxSassContent && !isSplitViewOpen && (
+            <Button
+              size="sm"
+              borderRadius="md"
+              bg="#1A1A1A"
+              color="#CCCCCC"
+              border="1px solid"
+              borderColor="#2A2A2A"
+              _hover={{
+                bg: "#252525",
+                color: "#FFFFFF",
+                borderColor: "#3A3A3A",
+              }}
+              onClick={() => setIsSplitViewOpen(true)}
+              fontSize="14px"
+              fontWeight="500"
+              h="36px"
+              px={4}
+              pointerEvents="auto"
+            >
+              Show PTX/SASS
+            </Button>
+          )}
+          {isEditable && onToggleVimMode && !toolbar && (
+            <Button
+              size="sm"
+              borderRadius="md"
+              bg={enableVimMode ? "rgba(72, 187, 120, 0.16)" : "#1A1A1A"}
+              color={enableVimMode ? "#48BB78" : "#858585"}
+              border="1px solid"
+              borderColor={enableVimMode ? "#48BB78" : "#2A2A2A"}
+              _hover={{
+                bg: enableVimMode ? "rgba(72, 187, 120, 0.25)" : "#252525",
+                color: enableVimMode ? "#63D297" : "#CCCCCC",
+                borderColor: enableVimMode ? "#63D297" : "#3A3A3A",
+              }}
+              onClick={() => onToggleVimMode?.(!enableVimMode)}
+              fontSize="14px"
+              fontWeight="500"
+              h="36px"
+              px={4}
+              pointerEvents="auto"
+            >
+              Vim
+            </Button>
+          )}
+        </Box>
+      ) : null}
+    </Box>
+  );
+
+  const ptxSassPanel = (
+    <Box w="100%" h="100%" bg="brand.secondary" overflow="hidden">
+      <Tabs
+        variant="unstyled"
+        h="100%"
+        display="flex"
+        flexDirection="column"
+        colorScheme="blue"
+      >
+        <Flex
+          bg="#1A1A1A"
+          borderBottom="1px solid"
+          borderColor="#2A2A2A"
+          px={1}
+          align="center"
+          justify="space-between"
+          h="24px"
+          minH="24px"
+        >
+          <TabList gap={0} flex={1} h="100%">
+            {enablePtxSassView && (
+              <Tab
+                _selected={{
+                  color: "#FFFFFF",
+                  bg: "rgba(206, 145, 120, 0.2)",
+                  borderBottom: "1.5px solid",
+                  borderColor: "#CE9178",
+                }}
+                color="#858585"
+                fontSize="10px"
+                fontWeight="500"
+                py={0}
+                px={2}
+                h="100%"
+                _hover={{ color: "#CCCCCC" }}
+                isDisabled={!ptxContent}
+              >
+                PTX
+              </Tab>
+            )}
+            {enablePtxSassView && (
+              <Tab
+                _selected={{
+                  color: "#FFFFFF",
+                  bg: "rgba(220, 220, 170, 0.2)",
+                  borderBottom: "1.5px solid",
+                  borderColor: "#DCDCAA",
+                }}
+                color="#858585"
+                fontSize="10px"
+                fontWeight="500"
+                py={0}
+                px={2}
+                h="100%"
+                _hover={{ color: "#CCCCCC" }}
+                isDisabled={!sassContent}
+              >
+                SASS
+              </Tab>
+            )}
+          </TabList>
+          {(ptxDirty ?? sassDirty) && (
+            <Tooltip
+              label="PTX/SASS may be outdated. Run or submit your CUDA source to refresh."
+              placement="top"
+              hasArrow
+            >
+              <IconButton
+                aria-label="PTX/SASS might be outdated"
+                icon={<FiAlertTriangle />}
+                size="xs"
+                variant="ghost"
+                color="#E5A50A"
+                _hover={{ color: "#FFCC33", bg: "rgba(255, 204, 51, 0.06)" }}
+                mr={1}
+                h="20px"
+                minW="20px"
+                w="20px"
+              />
+            </Tooltip>
+          )}
+          <IconButton
+            aria-label="Close Split View"
+            icon={<FiX />}
+            size="xs"
+            variant="ghost"
+            color="#858585"
+            _hover={{ color: "#CCCCCC", bg: "rgba(255, 255, 255, 0.05)" }}
+            onClick={() => setIsSplitViewOpen(false)}
+            mr={0.5}
+            h="20px"
+            minW="20px"
+            w="20px"
+          />
+        </Flex>
+
+        <TabPanels flex="1" minH={0}>
+          {enablePtxSassView && (
+            <TabPanel p={0} h="100%">
+              {ptxContent ? (
+                editorContent(ptxContent, "ptx", true, {
+                  onMount: handlePtxEditorMount,
+                })
+              ) : (
+                <Box
+                  h="100%"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  color="#858585"
+                  fontSize="sm"
+                >
+                  <Text>
+                    PTX content will appear here after running or submitting
+                    your code.
+                  </Text>
+                </Box>
+              )}
+            </TabPanel>
+          )}
+          {enablePtxSassView && (
+            <TabPanel p={0} h="100%">
+              {sassContent ? (
+                editorContent(sassContent, "asm", true)
+              ) : (
+                <Box
+                  h="100%"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  color="#858585"
+                  fontSize="sm"
+                >
+                  <Text>
+                    SASS content will appear here after running or submitting
+                    your code.
+                  </Text>
+                </Box>
+              )}
+            </TabPanel>
+          )}
+        </TabPanels>
+      </Tabs>
+    </Box>
+  );
+
+  // Custom split view state
+  const [splitRatio, setSplitRatio] = useState(60);
+  const [isResizing, setIsResizing] = useState(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const containerRect = document
+        .getElementById("code-editor-split-container")
+        ?.getBoundingClientRect();
+
+      if (!containerRect) return;
+
+      const containerWidth = containerRect.width;
+      const mouseX = e.clientX - containerRect.left;
+      let newRatio = (mouseX / containerWidth) * 100;
+
+      // Apply min-width constraints (40% each)
+      if (mouseX < (containerWidth * 40) / 100) {
+        newRatio = 40;
+      } else if (mouseX > (containerWidth * 60) / 100) {
+        newRatio = 60;
+      }
+
+      setSplitRatio(newRatio);
+    },
+    [isResizing]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    } else {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing, handleMouseMove, handleMouseUp]);
+
+  return (
+    <>
+      <Box
+        w="100%"
+        h="100%"
+        bg={embedded ? "transparent" : "brand.secondary"}
+        borderRadius={embedded ? "0" : "xl"}
+        position="relative"
+        display="flex"
+        flexDirection="column"
+      >
+        {toolbar}
+        <Box
+          flex="1"
+          minH={0}
+          borderRadius={embedded ? "0" : "xl"}
+          overflow="hidden"
+        >
+          {isSplitViewOpen && enablePtxSassView ? (
+            <Box
+              id="code-editor-split-container"
+              display="flex"
+              h="100%"
+              position="relative"
+            >
+              {/* Left Panel - Code Editor */}
+              <Box w={`${splitRatio}%`} h="100%" overflow="hidden">
+                {codeEditorPanel}
+              </Box>
+
+              {/* Minimal Divider */}
+              <Box
+                position="absolute"
+                left={`${splitRatio}%`}
+                transform="translateX(-50%)"
+                width="1px"
+                height="100%"
+                bg="#2A2A2A"
+                cursor="col-resize"
+                zIndex={2}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={handleMouseDown}
+                _hover={{
+                  bg: "#4EC9B0",
+                  width: "2px",
+                  opacity: 0.6,
+                }}
+                transition="all 0.15s ease"
+              />
+
+              {/* Right Panel - PTX/SASS */}
+              <Box w={`${100 - splitRatio}%`} h="100%" overflow="hidden">
+                {ptxSassPanel}
+              </Box>
+            </Box>
+          ) : (
+            codeEditorPanel
+          )}
+        </Box>
+      </Box>
+      <style jsx global>{`
+        .ptx-highlight-line {
+          background-color: rgba(79, 193, 255, 0.28) !important;
+          border-left: 3px solid rgba(79, 193, 255, 0.9);
+          padding-left: 4px;
+        }
+
+        .ptx-gutter-highlight {
+          border-left: 3px solid #4fc1ff;
+        }
+      `}</style>
+    </>
+  );
+};
+
+export default CodeEditor;

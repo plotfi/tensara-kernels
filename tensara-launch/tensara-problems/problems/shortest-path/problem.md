@@ -1,0 +1,30 @@
+---
+slug: "shortest-path"
+title: "Single Source Shortest Path"
+difficulty: "MEDIUM"
+author: "sarthak"
+tags: ["graphs"]
+---
+
+Find the shortest path distances from a source node to all other nodes in a weighted directed graph.
+
+Given a weighted adjacency matrix $A$ of size $N \times N$ with integer weights and a source node $s$, compute the shortest distances from $s$ to all nodes:
+
+$$
+d[v] = \min_{path\ from\ s\ to\ v} \sum_{(u,w) \in path} A[u][w]
+$$
+
+## Input
+- Weighted adjacency matrix $A$ of size $N \times N$ where $A[i][j]$ contains the integer weight of the edge from node $i$ to node $j$, and $A[i][j] = 0$ if no edge exists
+- Source node index $s$
+
+## Output
+- Array $d$ of size $N$ containing shortest distances from source $s$ to all nodes. If a node is unreachable, its distance should be $-1$.
+
+## Test Case Sizes
+
+- n = 512
+- n = 2048
+- n = 4096
+- n = 6144
+- n = 8192

@@ -1,0 +1,38 @@
+---
+slug: "soft-plus"
+title: "Softplus"
+difficulty: "EASY"
+author: "sarthak"
+tags: ["activation-function"]
+---
+
+Perform the Softplus activation function on an input matrix:
+$$
+C[i][j] = \text{softplus}(A[i][j])
+$$
+
+The Softplus function is defined as:
+$$
+\text{softplus}(x) = \ln(1 + e^x)
+$$
+
+It can be seen as a smooth approximation of the ReLU function.
+
+## Input:
+- Matrix $A$ of size $M \times N$ containing floating-point values
+
+## Output:
+- Matrix $C$ of size $M \times N$ containing the Softplus activation values
+
+## Notes:
+- Both matrices $\text{A}$ and $\text{C}$ are stored in row-major order
+- Softplus is a smooth approximation to the ReLU function and ensures a non-zero gradient for all input values
+- Unlike ReLU, which has a sharp transition at x=0, Softplus provides a smooth transition
+
+## Test Case Sizes
+
+- 4096x4096
+- 6144x4096
+- 4096x7168
+- 4096x8192
+- 8192x8192

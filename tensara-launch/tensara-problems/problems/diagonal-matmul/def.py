@@ -1,0 +1,154 @@
+import torch
+from typing import List, Dict, Tuple, Any
+
+from problem import Problem
+
+class diagonal_matmul(Problem):
+    """Diagonal matrix multiplication problem."""
+    
+    is_exact = False
+
+    parameters = [
+        {"name": "diagonal_a", "type": "float", "pointer": True, "const": True},
+        {"name": "input_b", "type": "float", "pointer": True, "const": True},
+        {"name": "output_c", "type": "float", "pointer": True, "const": False},
+        {"name": "n", "type": "size_t", "pointer": False, "const": False},
+        {"name": "m", "type": "size_t", "pointer": False, "const": False},
+    ]
+
+    
+    def __init__(self):
+        super().__init__(
+            name="diagonal-matmul"
+        )
+    
+    def reference_solution(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+        """
+        PyTorch implementation of diagonal matrix multiplication.
+        
+        Args:
+            A: 1D tensor representing the diagonal of the diagonal matrix
+            B: 2D tensor representing the second matrix
+            
+        Returns:
+            Result of diag(A) * B
+        """
+        with torch.no_grad(), torch.autocast("cuda", enabled=False, dtype=A.dtype):
+            return torch.diag(A) @ B
+    
+    def generate_test_cases(self) -> List[Dict[str, Any]]:
+        """
+        Generate test cases for diagonal matrix multiplication.
+        
+        Returns:
+            List of test case dictionaries with varying matrix dimensions
+        """
+        dtype = self.param_dtype(0)
+
+        # Diagonal matrix dimensions: (N,) and (N, M)
+        test_matrices = [
+            {
+                "name": "2048 x 2048x2048",
+                "dims": (2048, 2048),
+            },
+            {
+                "name": "4096 x 4096x4096",
+                "dims": (4096, 4096),
+            },
+            {
+                "name": "6144 x 6144x6144",
+                "dims": (6144, 6144),
+            },
+            {
+                "name": "8192 x 8192x4096",
+                "dims": (8192, 4096),
+            }
+        ]
+        
+        test_cases = []
+        for matrix in test_matrices:
+            seed = Problem.get_seed(f"{self.name}_{matrix['name']}_{matrix['dims']}")
+            test_cases.append({
+                "name": matrix["name"],
+                "dims": matrix["dims"],
+                "create_inputs": lambda m=matrix["dims"], seed=seed, dtype=dtype: (
+                    (lambda g: (
+                        torch.rand(m[0], device="cuda", dtype=dtype, generator=g) * 2 - 1,  # uniform [-1, 1]
+                        torch.rand(m[0], m[1], device="cuda", dtype=dtype, generator=g) * 2 - 1   # uniform [-1, 1]
+                    ))(torch.Generator(device="cuda").manual_seed(seed))
+                )
+            })
+        return test_cases
+    
+    def generate_sample(self) -> List[Dict[str, Any]]:
+        """
+        Generate a single sample test case for debugging or interactive runs.
+        
+        Returns:
+            A list containing a single test case dictionary
+        """
+        dtype = self.param_dtype(0)
+
+        N, M = (8, 8)
+        return {
+            "name": f"Sample ({N}x{N} * {N}x{M})",
+            "dims": (N, M),
+            "create_inputs": lambda n=N, m=M: (
+                torch.arange(1, n + 1, device="cuda", dtype=dtype).float(), # Sequential diagonal
+                torch.arange(1, n * m + 1, device="cuda", dtype=dtype).float().view(n, m) # Sequential matrix B
+            )
+        }
+    
+    def verify_result(self, expected_output: torch.Tensor, 
+                     actual_output: torch.Tensor) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Verify if the diagonal matrix multiplication result is correct.
+        
+        Args:
+            expected_output: Output from reference solution
+            actual_output: Output from submitted solution
+            
+        Returns:
+            Tuple of (is_correct, debug_info)
+        """
+        is_close = torch.allclose(actual_output, expected_output, rtol=1e-4, atol=3e-5)
+        
+        debug_info = {}
+        if not is_close:
+            diff = actual_output - expected_output
+            max_diff = torch.max(torch.abs(diff)).item()
+            mean_diff = torch.mean(torch.abs(diff)).item()
+            
+            debug_info = {
+                "max_difference": max_diff,
+                "mean_difference": mean_diff
+            }
+        
+        return is_close, debug_info
+    
+    def get_flops(self, test_case: Dict[str, Any]) -> int:
+        """
+        Get the number of floating point operations for the problem.
+        
+        Args:
+            test_case: The test case dictionary
+            
+        Returns:
+            Number of floating point operations
+        """
+        # Diagonal matrix multiplication FLOPS = N * M
+        N, M = test_case["dims"]
+        return N * M
+    
+    def get_extra_params(self, test_case: Dict[str, Any]) -> List[Any]:
+        """
+        Get extra parameters to pass to the CUDA solution.
+        
+        Args:
+            test_case: The test case dictionary
+            
+        Returns:
+            List containing the dimensions N, M
+        """
+        N, M = test_case["dims"]
+        return [N, M]

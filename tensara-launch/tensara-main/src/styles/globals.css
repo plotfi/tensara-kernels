@@ -1,0 +1,167 @@
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family:
+    "Rethink Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    Segoe UI,
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    Fira Sans,
+    Droid Sans,
+    Helvetica Neue,
+    sans-serif;
+  scroll-behavior: smooth;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Markdown Styles */
+.markdown {
+  line-height: 1.6;
+}
+
+.markdown p {
+  margin-bottom: 1rem;
+}
+
+.markdown a {
+  color: #63b3ed;
+  text-decoration: none;
+}
+
+.markdown a:hover {
+  text-decoration: underline;
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.markdown blockquote {
+  border-left: 4px solid #4a5568;
+  margin: 1rem 0;
+  padding-left: 1rem;
+  color: #a0aec0;
+}
+
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.markdown table th,
+.markdown table td {
+  border: 1px solid #4a5568;
+  padding: 0.5rem;
+}
+
+.markdown table th {
+  background-color: #2d3748;
+}
+
+.markdown code:not(pre code) {
+  background-color: rgba(45, 55, 72, 0.5);
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+.markdown pre {
+  background-color: #1a202c;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.markdown pre code {
+  color: #e2e8f0;
+  font-size: 0.875em;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 1rem 0;
+  padding-left: 2rem;
+}
+
+.markdown li {
+  margin: 0.5rem 0;
+}
+
+/* KaTeX Math Styles */
+.katex {
+  font-size: 1.1em;
+}
+
+.katex-display {
+  margin: 1rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fadeIn {
+  animation: fadeIn 0.3s ease;
+}
+
+/* Base highlight styles */
+.highlight {
+  transform: scaleX(0);
+  transition:
+    transform 0.25s ease,
+    opacity 0.15s ease;
+}
+
+/* Direction-specific transforms */
+.from-left .highlight {
+  transform-origin: left;
+}
+
+.from-right .highlight {
+  transform-origin: right;
+}
+
+/* Hover states */
+button:hover .highlight {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* Active state styling */
+.active .highlight {
+  display: none;
+}
+
+.split {
+  height: 100%;
+}
+
+.split .gutter {
+  background-color: #2a2a2a;
+  cursor: row-resize;
+}

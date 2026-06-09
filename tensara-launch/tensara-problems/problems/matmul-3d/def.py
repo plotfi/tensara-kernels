@@ -1,0 +1,158 @@
+import torch
+from typing import List, Dict, Tuple, Any
+
+from problem import Problem
+
+class matmul_3d(Problem):
+    """3D matrix multiplication problem."""
+    
+    is_exact = False
+
+    parameters = [
+        {"name": "A", "type": "float", "pointer": True, "const": True},
+        {"name": "B", "type": "float", "pointer": True, "const": True},
+        {"name": "C", "type": "float", "pointer": True, "const": False},
+        {"name": "n", "type": "size_t", "pointer": False, "const": False},
+        {"name": "m", "type": "size_t", "pointer": False, "const": False},
+        {"name": "k", "type": "size_t", "pointer": False, "const": False},
+        {"name": "l", "type": "size_t", "pointer": False, "const": False},
+    ]
+
+    
+    def __init__(self):
+        super().__init__(
+            name="matmul-3d"
+        )
+    
+    def reference_solution(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+        """
+        PyTorch implementation of 3D tensor-matrix multiplication.
+        
+        Args:
+            A: First input tensor of shape (N, M, K)
+            B: Second input matrix of shape (K, L)
+            
+        Returns:
+            Result of shape (N, M, L) from multiplying A and B along the last dimension of A
+        """
+        with torch.no_grad(), torch.autocast("cuda", enabled=False, dtype=A.dtype):
+            return torch.matmul(A, B)
+    
+    def generate_test_cases(self) -> List[Dict[str, Any]]:
+        """
+        Generate test cases for 3D tensor-matrix multiplication.
+        
+        Returns:
+            List of test case dictionaries with varying dimensions
+        """
+        dtype = self.param_dtype(0)
+
+        # Matrix dimensions: (N, M, K) × (K, L) = (N, M, L)
+        # dims represents (N, M, K, L)
+        test_matrices = [
+            {
+                "name": "32x4096x4096 x 4096x4096",
+                "dims": (32, 4096, 4096, 4096),
+            },
+            {
+                "name": "16x8192x8192 x 8192x4096",
+                "dims": (16, 8192, 8192, 4096),
+            },
+            {
+                "name": "64x4096x4096 x 4096x8192",
+                "dims": (64, 4096, 4096, 8192),
+            },
+            {
+                "name": "8x8192x8192 x 8192x8192",
+                "dims": (8, 8192, 8192, 8192),
+            }
+        ]
+        
+        test_cases = []
+        for matrix in test_matrices:
+            seed = Problem.get_seed(f"{self.name}_{matrix['name']}")
+            test_cases.append({
+                "name": matrix["name"],
+                "dims": matrix["dims"],
+                "create_inputs": lambda m=matrix["dims"], seed=seed, dtype=dtype: (
+                    (lambda g: (
+                        torch.rand(m[0], m[1], m[2], device="cuda", dtype=dtype, generator=g) * 2 - 1,  # A: (N,M,K)
+                        torch.rand(m[2], m[3], device="cuda", dtype=dtype, generator=g) * 2 - 1         # B: (K,L)
+                    ))(torch.Generator(device="cuda").manual_seed(seed))
+                )
+            })
+        return test_cases
+    
+    def generate_sample(self) -> List[Dict[str, Any]]:
+        """
+        Generate a single sample test case for debugging or interactive runs.
+        
+        Returns:
+            A list containing a single test case dictionary
+        """
+        dtype = self.param_dtype(0)
+
+        N, M, K, L = (4, 4, 4, 4)
+        return {
+            "name": f"Sample ({N}x{M}x{K} * {K}x{L})",
+            "dims": (N, M, K, L),
+            "create_inputs": lambda n=N, m=M, k=K, l=L: (
+                torch.arange(1, n*m*k + 1, device="cuda", dtype=dtype).float().view(n, m, k),
+                torch.arange(1, k*l + 1, device="cuda", dtype=dtype).float().view(k, l)
+            )
+        }
+    
+    def verify_result(self, expected_output: torch.Tensor, 
+                     actual_output: torch.Tensor) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Verify if the matrix multiplication result is correct.
+        
+        Args:
+            expected_output: Output from reference solution
+            actual_output: Output from submitted solution
+            
+        Returns:
+            Tuple of (is_correct, debug_info)
+        """
+        is_close = torch.allclose(actual_output, expected_output, rtol=2e-4, atol=3e-3)
+        
+        debug_info = {}
+        if not is_close:
+            diff = actual_output - expected_output
+            max_diff = torch.max(torch.abs(diff)).item()
+            mean_diff = torch.mean(torch.abs(diff)).item()
+            
+            debug_info = {
+                "max_difference": max_diff,
+                "mean_difference": mean_diff
+            }
+        
+        return is_close, debug_info
+    
+    def get_flops(self, test_case: Dict[str, Any]) -> int:
+        """
+        Get the number of floating point operations for 3D tensor-matrix multiplication.
+        
+        Args:
+            test_case: The test case dictionary
+            
+        Returns:
+            Number of floating point operations
+        """
+        # 3D tensor-matrix multiplication FLOPS = 2 * N * M * K * L
+        # (One multiply and one add for each cell in the result, done K times, for N*M elements)
+        N, M, K, L = test_case["dims"]
+        return 2 * N * M * K * L
+    
+    def get_extra_params(self, test_case: Dict[str, Any]) -> List[Any]:
+        """
+        Get extra parameters to pass to the CUDA solution.
+        
+        Args:
+            test_case: The test case dictionary
+            
+        Returns:
+            List containing the dimensions N, M, K, L
+        """
+        N, M, K, L = test_case["dims"]
+        return [N, M, K, L]

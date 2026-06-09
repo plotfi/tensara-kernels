@@ -1,0 +1,83 @@
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cstdint>
+#include <cuda_runtime.h>
+#include <cuda_fp16.h>
+#include <cuda_fp8.h>
+
+extern "C" void solution(const uint8_t* q_a, const __nv_fp8_e4m3* scale_a, float sf_g_a, const uint8_t* q_b, const __nv_fp8_e4m3* scale_b, float sf_g_b, half* c, size_t m, size_t n, size_t k);
+
+int main(int argc, char** argv) {
+    printf("=== nvfp4-gemm ===\n");
+    srand(42);
+
+    float sf_g_a = 1.0f;
+    float sf_g_b = 1.0f;
+    size_t m = 64;
+    size_t n = 64;
+    size_t k = 64;
+
+    size_t q_a_count = m * k / 2;
+    size_t scale_a_count = m * (k / 16);
+    size_t q_b_count = k * n / 2;
+    size_t scale_b_count = k * (n / 16);
+    size_t c_count = m * n;
+
+    uint8_t* h_q_a = new uint8_t[q_a_count];
+    __nv_fp8_e4m3* h_scale_a = new __nv_fp8_e4m3[scale_a_count];
+    uint8_t* h_q_b = new uint8_t[q_b_count];
+    __nv_fp8_e4m3* h_scale_b = new __nv_fp8_e4m3[scale_b_count];
+    half* h_c = new half[c_count];
+
+    for (size_t i = 0; i < q_a_count; i++)
+        h_q_a[i] = static_cast<uint8_t>(rand() % 256);
+    for (size_t i = 0; i < scale_a_count; i++)
+        h_scale_a[i] = static_cast<__nv_fp8_e4m3>(0);
+    for (size_t i = 0; i < q_b_count; i++)
+        h_q_b[i] = static_cast<uint8_t>(rand() % 256);
+    for (size_t i = 0; i < scale_b_count; i++)
+        h_scale_b[i] = static_cast<__nv_fp8_e4m3>(0);
+    memset(h_c, 0, c_count * sizeof(half));
+
+    uint8_t* d_q_a;
+    cudaMalloc(&d_q_a, q_a_count * sizeof(uint8_t));
+    __nv_fp8_e4m3* d_scale_a;
+    cudaMalloc(&d_scale_a, scale_a_count * sizeof(__nv_fp8_e4m3));
+    uint8_t* d_q_b;
+    cudaMalloc(&d_q_b, q_b_count * sizeof(uint8_t));
+    __nv_fp8_e4m3* d_scale_b;
+    cudaMalloc(&d_scale_b, scale_b_count * sizeof(__nv_fp8_e4m3));
+    half* d_c;
+    cudaMalloc(&d_c, c_count * sizeof(half));
+
+    cudaMemcpy(d_q_a, h_q_a, q_a_count * sizeof(uint8_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_scale_a, h_scale_a, scale_a_count * sizeof(__nv_fp8_e4m3), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_q_b, h_q_b, q_b_count * sizeof(uint8_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_scale_b, h_scale_b, scale_b_count * sizeof(__nv_fp8_e4m3), cudaMemcpyHostToDevice);
+    cudaMemset(d_c, 0, c_count * sizeof(half));
+
+    solution(d_q_a, d_scale_a, sf_g_a, d_q_b, d_scale_b, sf_g_b, d_c, m, n, k);
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(h_c, d_c, c_count * sizeof(half), cudaMemcpyDeviceToHost);
+
+    printf("Output c (first 10): ");
+    for (size_t i = 0; i < 10 && i < c_count; i++)
+        printf("%f ", __half2float(h_c[i]));
+    printf("\n");
+
+    cudaFree(d_q_a);
+    cudaFree(d_scale_a);
+    cudaFree(d_q_b);
+    cudaFree(d_scale_b);
+    cudaFree(d_c);
+    delete[] h_q_a;
+    delete[] h_scale_a;
+    delete[] h_q_b;
+    delete[] h_scale_b;
+    delete[] h_c;
+
+    printf("Done.\n");
+    return 0;
+}
