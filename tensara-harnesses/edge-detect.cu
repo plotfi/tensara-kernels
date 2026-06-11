@@ -17,6 +17,5 @@ int main() {
 
     output_image.preview("output_image");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

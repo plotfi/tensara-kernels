@@ -19,6 +19,5 @@ int main() {
 
     out.preview("out");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

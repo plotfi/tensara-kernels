@@ -18,6 +18,5 @@ int main() {
 
     d_output.preview("d_output");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

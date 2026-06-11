@@ -25,6 +25,5 @@ int main() {
 
     y.preview("y");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

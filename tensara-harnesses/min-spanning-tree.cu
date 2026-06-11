@@ -16,6 +16,5 @@ int main() {
 
     min_weight.preview("min_weight");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

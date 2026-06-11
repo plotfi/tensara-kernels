@@ -17,6 +17,5 @@ int main() {
 
     d_distances.preview("d_distances");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

@@ -18,6 +18,5 @@ int main() {
 
     grayscale_output.preview("grayscale_output");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

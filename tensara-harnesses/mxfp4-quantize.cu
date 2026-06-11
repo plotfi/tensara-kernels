@@ -19,6 +19,5 @@ int main() {
     q.preview("q");
     scale.preview("scale");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

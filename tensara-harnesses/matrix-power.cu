@@ -17,6 +17,5 @@ int main() {
 
     output_matrix.preview("output_matrix");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

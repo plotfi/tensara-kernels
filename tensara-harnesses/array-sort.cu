@@ -16,6 +16,5 @@ int main() {
 
     b.preview("b");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

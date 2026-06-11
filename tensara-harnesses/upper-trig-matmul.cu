@@ -18,6 +18,5 @@ int main() {
 
     output_c.preview("output_c");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

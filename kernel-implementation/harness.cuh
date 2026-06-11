@@ -24,6 +24,11 @@ inline void begin(const char* name) {
     srand(42);
 }
 
+// Print the harness footer.
+inline void end() {
+    printf("Done.\n");
+}
+
 // ---- per-element random fill, dispatched by type ------------------------
 inline void fill_random(float* p, size_t n) {
     for (size_t i = 0; i < n; i++)

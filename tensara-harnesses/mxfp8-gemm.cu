@@ -24,6 +24,5 @@ int main() {
 
     c.preview("c");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

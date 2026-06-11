@@ -21,6 +21,5 @@ int main() {
 
     output.preview("output");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

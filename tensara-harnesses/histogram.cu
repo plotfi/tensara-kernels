@@ -18,6 +18,5 @@ int main() {
 
     histogram.preview("histogram");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }

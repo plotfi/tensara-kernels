@@ -22,6 +22,5 @@ int main() {
 
     loss.preview("loss");
 
-    printf("Done.\n");
-    return 0;
+    harness::end();
 }
