@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
+#include "../kernel-implementation/rms-norm.cu"
 extern "C" void solution(const float* X, float* Y, size_t B, size_t N);
 
 int main(int argc, char** argv) {

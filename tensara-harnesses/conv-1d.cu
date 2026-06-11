@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
+#include "../kernel-implementation/conv-1d.cu"
 extern "C" void solution(const float* A, const float* B, float* C, size_t N, size_t K);
 
 int main(int argc, char** argv) {

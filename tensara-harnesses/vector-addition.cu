@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
+#include "../kernel-implementation/vector-addition.cu"
 extern "C" void solution(const float* d_input1, const float* d_input2, float* d_output, size_t n);
 
 int main(int argc, char** argv) {

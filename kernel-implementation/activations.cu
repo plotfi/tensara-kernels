@@ -37,6 +37,10 @@
 #  define BLOCK_SIZE 512
 #  define ACTIVATION SIGMOID
 #  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+#elif defined(ACT_HARD_SIGMOID)
+#  define BLOCK_SIZE 512
+#  define ACTIVATION HARD_SIGMOID
+#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
 #elif defined(ACT_TANH)
 #  define BLOCK_SIZE 512
 #  define ACTIVATION fast_tanh
@@ -60,6 +64,9 @@
 #define ELU(X) \
     X > 0.0f ? X : (alpha * (__expf(X) - 1))
 
+#define HARD_SIGMOID(X) (X <= -3.0f ? 0.0f : \
+                         (X >= 3.0f ? 1.0f : \
+                          __fdividef(X + 3.0f, 6.0f)))
 #define SIGMOID(X) __fdividef(1.0f, 1.0f + __expf(-(X)))
 
 #define SWISH(X) \

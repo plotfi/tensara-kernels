@@ -11,14 +11,17 @@ make build/bin/sigmoid.exe       NVCCFLAGS='-O2 -std=c++17 -DACT_SIGMOID'
 make build/bin/soft-plus.exe     NVCCFLAGS='-O2 -std=c++17 -DACT_SOFTPLUS'
 make build/bin/swish.exe         NVCCFLAGS='-O2 -std=c++17 -DACT_SWISH'
 make build/bin/tanh.exe          NVCCFLAGS='-O2 -std=c++17 -DACT_TANH'
+make build/bin/hard-sigmoid.exe  NVCCFLAGS='-O2 -std=c++17 -DACT_HARD_SIGMOID'
 
-# make build/bin/conv-1d.exe
+make build/bin/vector-addition.exe
+make build/bin/rms-norm.exe
+make build/bin/matrix-vector.exe
+make build/bin/conv-1d.exe
+
 # make build/bin/conv-2d.exe
 # make build/bin/softmax.exe
-# make build/bin/vector-addition.exe
 # make build/bin/vector-multiply-ff.exe
 # make build/bin/matrix-scalar.exe
-# make build/bin/matrix-vector.exe
 
 # make build/bin/all-pairs-shortest-path.exe
 # make build/bin/argmax.exe
@@ -41,7 +44,6 @@ make build/bin/tanh.exe          NVCCFLAGS='-O2 -std=c++17 -DACT_TANH'
 # make build/bin/gemm-multiply-leakyrelu.exe
 # make build/bin/gemm-relu.exe
 # make build/bin/grayscale.exe
-# make build/bin/hard-sigmoid.exe
 # make build/bin/hinge-loss.exe
 # make build/bin/histogram.exe
 # make build/bin/huber-loss.exe
@@ -78,7 +80,6 @@ make build/bin/tanh.exe          NVCCFLAGS='-O2 -std=c++17 -DACT_TANH'
 # make build/bin/nvfp4-quantize.exe
 # make build/bin/poly-multiply-ff.exe
 # make build/bin/product-dim.exe
-# make build/bin/rms-norm.exe
 # make build/bin/running-sum-1d.exe
 # make build/bin/scaled-dot-attention.exe
 # make build/bin/shortest-path.exe
