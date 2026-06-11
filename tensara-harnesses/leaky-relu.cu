@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
-#include "activations.cu"
+#include "../kernel-implementation/activations.cu"
 extern "C" void solution(const float* input, float alpha, float* output, size_t n, size_t m);
 
 int main(int argc, char** argv) {
