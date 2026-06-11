@@ -2,52 +2,21 @@
 
 extern "C" void solution(const float* input_a, const float* input_b, float* output_c, size_t n);
 
-int main(int argc, char** argv) {
-    printf("=== lower-trig-matmul ===\n");
-    srand(42);
+int main() {
+    harness::begin("lower-trig-matmul");
 
     size_t n = 64;
 
-    size_t input_a_count = n * n;
-    size_t input_b_count = n * n;
-    size_t output_c_count = n * n;
+    harness::Buffer<float> input_a(n * n);
+    harness::Buffer<float> input_b(n * n);
+    harness::Buffer<float> output_c(n * n);
 
-    float* h_input_a = new float[input_a_count];
-    float* h_input_b = new float[input_b_count];
-    float* h_output_c = new float[output_c_count];
+    input_a.fill_random();
+    input_b.fill_random();
 
-    for (size_t i = 0; i < input_a_count; i++)
-        h_input_a[i] = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
-    for (size_t i = 0; i < input_b_count; i++)
-        h_input_b[i] = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
-    memset(h_output_c, 0, output_c_count * sizeof(float));
+    BENCHMARK(solution(input_a, input_b, output_c, n));
 
-    float* d_input_a;
-    cudaMalloc(&d_input_a, input_a_count * sizeof(float));
-    float* d_input_b;
-    cudaMalloc(&d_input_b, input_b_count * sizeof(float));
-    float* d_output_c;
-    cudaMalloc(&d_output_c, output_c_count * sizeof(float));
-
-    cudaMemcpy(d_input_a, h_input_a, input_a_count * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_input_b, h_input_b, input_b_count * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(d_output_c, 0, output_c_count * sizeof(float));
-
-    BENCHMARK(solution(d_input_a, d_input_b, d_output_c, n));
-
-    cudaMemcpy(h_output_c, d_output_c, output_c_count * sizeof(float), cudaMemcpyDeviceToHost);
-
-    printf("Output output_c (first 10): ");
-    for (size_t i = 0; i < 10 && i < output_c_count; i++)
-        printf("%f ", h_output_c[i]);
-    printf("\n");
-
-    cudaFree(d_input_a);
-    cudaFree(d_input_b);
-    cudaFree(d_output_c);
-    delete[] h_input_a;
-    delete[] h_input_b;
-    delete[] h_output_c;
+    output_c.preview("output_c");
 
     printf("Done.\n");
     return 0;

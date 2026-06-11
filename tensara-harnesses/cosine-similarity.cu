@@ -2,53 +2,22 @@
 
 extern "C" void solution(const float* predictions, const float* targets, float* output, size_t n, size_t d);
 
-int main(int argc, char** argv) {
-    printf("=== cosine-similarity ===\n");
-    srand(42);
+int main() {
+    harness::begin("cosine-similarity");
 
     size_t n = 64;
     size_t d = 128;
 
-    size_t predictions_count = n * d;
-    size_t targets_count = n * d;
-    size_t output_count = n;
+    harness::Buffer<float> predictions(n * d);
+    harness::Buffer<float> targets(n * d);
+    harness::Buffer<float> output(n);
 
-    float* h_predictions = new float[predictions_count];
-    float* h_targets = new float[targets_count];
-    float* h_output = new float[output_count];
+    predictions.fill_random();
+    targets.fill_random();
 
-    for (size_t i = 0; i < predictions_count; i++)
-        h_predictions[i] = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
-    for (size_t i = 0; i < targets_count; i++)
-        h_targets[i] = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
-    memset(h_output, 0, output_count * sizeof(float));
+    BENCHMARK(solution(predictions, targets, output, n, d));
 
-    float* d_predictions;
-    cudaMalloc(&d_predictions, predictions_count * sizeof(float));
-    float* d_targets;
-    cudaMalloc(&d_targets, targets_count * sizeof(float));
-    float* d_output;
-    cudaMalloc(&d_output, output_count * sizeof(float));
-
-    cudaMemcpy(d_predictions, h_predictions, predictions_count * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_targets, h_targets, targets_count * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(d_output, 0, output_count * sizeof(float));
-
-    BENCHMARK(solution(d_predictions, d_targets, d_output, n, d));
-
-    cudaMemcpy(h_output, d_output, output_count * sizeof(float), cudaMemcpyDeviceToHost);
-
-    printf("Output output (first 10): ");
-    for (size_t i = 0; i < 10 && i < output_count; i++)
-        printf("%f ", h_output[i]);
-    printf("\n");
-
-    cudaFree(d_predictions);
-    cudaFree(d_targets);
-    cudaFree(d_output);
-    delete[] h_predictions;
-    delete[] h_targets;
-    delete[] h_output;
+    output.preview("output");
 
     printf("Done.\n");
     return 0;

@@ -1,46 +1,22 @@
 #include "../kernel-implementation/harness.cuh"
-
 #include "../kernel-implementation/rms-norm.cu"
+
 extern "C" void solution(const float* X, float* Y, size_t B, size_t N);
 
-int main(int argc, char** argv) {
-    printf("=== rms-norm ===\n");
-    srand(42);
+int main() {
+    harness::begin("rms-norm");
 
     size_t B = 8;
     size_t N = 64;
 
-    size_t X_count = B * N;
-    size_t Y_count = B * N;
+    harness::Buffer<float> X(B * N);
+    harness::Buffer<float> Y(B * N);
 
-    float* h_X = new float[X_count];
-    float* h_Y = new float[Y_count];
+    X.fill_random();
 
-    for (size_t i = 0; i < X_count; i++)
-        h_X[i] = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
-    memset(h_Y, 0, Y_count * sizeof(float));
+    BENCHMARK(solution(X, Y, B, N));
 
-    float* d_X;
-    cudaMalloc(&d_X, X_count * sizeof(float));
-    float* d_Y;
-    cudaMalloc(&d_Y, Y_count * sizeof(float));
-
-    cudaMemcpy(d_X, h_X, X_count * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(d_Y, 0, Y_count * sizeof(float));
-
-    BENCHMARK(solution(d_X, d_Y, B, N));
-
-    cudaMemcpy(h_Y, d_Y, Y_count * sizeof(float), cudaMemcpyDeviceToHost);
-
-    printf("Output Y (first 10): ");
-    for (size_t i = 0; i < 10 && i < Y_count; i++)
-        printf("%f ", h_Y[i]);
-    printf("\n");
-
-    cudaFree(d_X);
-    cudaFree(d_Y);
-    delete[] h_X;
-    delete[] h_Y;
+    Y.preview("Y");
 
     printf("Done.\n");
     return 0;

@@ -2,44 +2,20 @@
 
 extern "C" void solution(const float* input_matrix, size_t n, float* output_matrix, size_t size);
 
-int main(int argc, char** argv) {
-    printf("=== matrix-power ===\n");
-    srand(42);
+int main() {
+    harness::begin("matrix-power");
 
     size_t n = 3;
     size_t size = 8;
 
-    size_t input_matrix_count = size * size;
-    size_t output_matrix_count = size * size;
+    harness::Buffer<float> input_matrix(size * size);
+    harness::Buffer<float> output_matrix(size * size);
 
-    float* h_input_matrix = new float[input_matrix_count];
-    float* h_output_matrix = new float[output_matrix_count];
+    input_matrix.fill_random();
 
-    for (size_t i = 0; i < input_matrix_count; i++)
-        h_input_matrix[i] = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
-    memset(h_output_matrix, 0, output_matrix_count * sizeof(float));
+    BENCHMARK(solution(input_matrix, n, output_matrix, size));
 
-    float* d_input_matrix;
-    cudaMalloc(&d_input_matrix, input_matrix_count * sizeof(float));
-    float* d_output_matrix;
-    cudaMalloc(&d_output_matrix, output_matrix_count * sizeof(float));
-
-    cudaMemcpy(d_input_matrix, h_input_matrix, input_matrix_count * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(d_output_matrix, 0, output_matrix_count * sizeof(float));
-
-    BENCHMARK(solution(d_input_matrix, n, d_output_matrix, size));
-
-    cudaMemcpy(h_output_matrix, d_output_matrix, output_matrix_count * sizeof(float), cudaMemcpyDeviceToHost);
-
-    printf("Output output_matrix (first 10): ");
-    for (size_t i = 0; i < 10 && i < output_matrix_count; i++)
-        printf("%f ", h_output_matrix[i]);
-    printf("\n");
-
-    cudaFree(d_input_matrix);
-    cudaFree(d_output_matrix);
-    delete[] h_input_matrix;
-    delete[] h_output_matrix;
+    output_matrix.preview("output_matrix");
 
     printf("Done.\n");
     return 0;

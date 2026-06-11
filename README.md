@@ -65,10 +65,32 @@ Done.
 
 ## Adding a New Kernel
 
-1. Create `tensara-harnesses/my-kernel.cu` with a `main()` that allocates data, calls `solution()` via `BENCHMARK(...)`, and prints results. Use an existing harness as a template (e.g. `matrix-multiplication.cu`). Include the shared helpers and declare but don't define `solution()`:
+Harnesses are built from the helpers in `kernel-implementation/harness.cuh`:
+
+- `harness::begin("name")` — print the banner and seed the RNG.
+- `harness::Buffer<T> buf(count)` — RAII host+device buffer (frees itself).
+  - `buf.fill_random()` — fill inputs with random data (by type) and upload.
+  - `buf.set({...})` — set explicit host values (e.g. a shape vector) and upload.
+  - `buf.preview("label")` — copy back and print the first 10 elements.
+  - implicitly converts to the device pointer, so pass it straight to `solution()`.
+- `BENCHMARK(solution(...))` — warmup + timed loop + average time.
+
+1. Create `tensara-harnesses/my-kernel.cu`. Use an existing harness as a
+   template (e.g. `matrix-multiplication.cu`):
    ```c++
    #include "../kernel-implementation/harness.cuh"
-   extern "C" void solution(/* your args */);
+   extern "C" void solution(const float* a, float* out, size_t n);
+
+   int main() {
+       harness::begin("my-kernel");
+       size_t n = 1024;
+       harness::Buffer<float> a(n), out(n);
+       a.fill_random();
+       BENCHMARK(solution(a, out, n));
+       out.preview("out");
+       printf("Done.\n");
+       return 0;
+   }
    ```
 
 2. Implement `solution()` in a separate file (e.g. `my-solution.cu`).

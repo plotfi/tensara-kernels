@@ -2,45 +2,21 @@
 
 extern "C" void solution(const float* input_image, int kernel_size, float* output_image, size_t height, size_t width);
 
-int main(int argc, char** argv) {
-    printf("=== box-blur ===\n");
-    srand(42);
+int main() {
+    harness::begin("box-blur");
 
     int kernel_size = 3;
     size_t height = 64;
     size_t width = 64;
 
-    size_t input_image_count = height * width;
-    size_t output_image_count = height * width;
+    harness::Buffer<float> input_image(height * width);
+    harness::Buffer<float> output_image(height * width);
 
-    float* h_input_image = new float[input_image_count];
-    float* h_output_image = new float[output_image_count];
+    input_image.fill_random();
 
-    for (size_t i = 0; i < input_image_count; i++)
-        h_input_image[i] = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
-    memset(h_output_image, 0, output_image_count * sizeof(float));
+    BENCHMARK(solution(input_image, kernel_size, output_image, height, width));
 
-    float* d_input_image;
-    cudaMalloc(&d_input_image, input_image_count * sizeof(float));
-    float* d_output_image;
-    cudaMalloc(&d_output_image, output_image_count * sizeof(float));
-
-    cudaMemcpy(d_input_image, h_input_image, input_image_count * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(d_output_image, 0, output_image_count * sizeof(float));
-
-    BENCHMARK(solution(d_input_image, kernel_size, d_output_image, height, width));
-
-    cudaMemcpy(h_output_image, d_output_image, output_image_count * sizeof(float), cudaMemcpyDeviceToHost);
-
-    printf("Output output_image (first 10): ");
-    for (size_t i = 0; i < 10 && i < output_image_count; i++)
-        printf("%f ", h_output_image[i]);
-    printf("\n");
-
-    cudaFree(d_input_image);
-    cudaFree(d_output_image);
-    delete[] h_input_image;
-    delete[] h_output_image;
+    output_image.preview("output_image");
 
     printf("Done.\n");
     return 0;

@@ -2,9 +2,8 @@
 
 extern "C" void solution(const float* input, int kernel_size, int stride, int padding, float* output, size_t H, size_t W);
 
-int main(int argc, char** argv) {
-    printf("=== avg-pool-2d ===\n");
-    srand(42);
+int main() {
+    harness::begin("avg-pool-2d");
 
     int kernel_size = 3;
     int stride = 1;
@@ -12,37 +11,14 @@ int main(int argc, char** argv) {
     size_t H = 32;
     size_t W = 32;
 
-    size_t input_count = H * W;
-    size_t output_count = H * W;
+    harness::Buffer<float> input(H * W);
+    harness::Buffer<float> output(H * W);
 
-    float* h_input = new float[input_count];
-    float* h_output = new float[output_count];
+    input.fill_random();
 
-    for (size_t i = 0; i < input_count; i++)
-        h_input[i] = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
-    memset(h_output, 0, output_count * sizeof(float));
+    BENCHMARK(solution(input, kernel_size, stride, padding, output, H, W));
 
-    float* d_input;
-    cudaMalloc(&d_input, input_count * sizeof(float));
-    float* d_output;
-    cudaMalloc(&d_output, output_count * sizeof(float));
-
-    cudaMemcpy(d_input, h_input, input_count * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(d_output, 0, output_count * sizeof(float));
-
-    BENCHMARK(solution(d_input, kernel_size, stride, padding, d_output, H, W));
-
-    cudaMemcpy(h_output, d_output, output_count * sizeof(float), cudaMemcpyDeviceToHost);
-
-    printf("Output output (first 10): ");
-    for (size_t i = 0; i < 10 && i < output_count; i++)
-        printf("%f ", h_output[i]);
-    printf("\n");
-
-    cudaFree(d_input);
-    cudaFree(d_output);
-    delete[] h_input;
-    delete[] h_output;
+    output.preview("output");
 
     printf("Done.\n");
     return 0;
