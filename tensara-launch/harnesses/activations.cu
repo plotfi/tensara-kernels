@@ -1,50 +1,55 @@
 #include <cuda_runtime.h>
 #include <math_constants.h>
 
-// Uncomment for ReLU
-// #define BLOCK_SIZE 512
-// #define ACTIVATION ReLU
-// #define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+// Select the activation at compile time with -D<flag>:
+//
+//   -DACT_RELU         ReLU
+//   -DACT_LEAKY_RELU   LeakyReLU  (solution takes `float alpha` param)
+//   -DACT_ELU          ELU        (solution takes `float alpha` param)
+//   -DACT_GELU         GELU
+//   -DACT_SELU         SELU
+//   -DACT_SIGMOID      Sigmoid
+//   -DACT_TANH         Tanh
+//   -DACT_SOFTPLUS     Softplus
+//   -DACT_SWISH        Swish  (default if nothing is defined)
 
-// Uncomment for LeakyReLU
-// #define BLOCK_SIZE 512
-// #define ACTIVATION LeakyReLU
-// #define SOLUTION() multi_solution(input, output, n, m, alpha)
-
-// Uncomment for SELU
-// #define BLOCK_SIZE 1024
-// #define ACTIVATION SELU
-// #define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-
-// Uncomment for Softplus
-// #define BLOCK_SIZE 1024
-// #define ACTIVATION SOFTPLUS
-// #define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-
-// Uncomment for Swish
-#define BLOCK_SIZE 1024
-#define ACTIVATION SWISH
-#define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-
-// Uncomment for ELU
-// #define BLOCK_SIZE 256
-// #define ACTIVATION ELU
-// #define SOLUTION() multi_solution(input, output, n, m, alpha)
-
-// Uncomment for GELU
-// #define BLOCK_SIZE 512
-// #define ACTIVATION GELU
-// #define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-
-// Uncomment for sigmoid
-// #define BLOCK_SIZE 512
-// #define ACTIVATION SIGMOID
-// #define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-
-// Uncomment for tanh
-// #define BLOCK_SIZE 512
-// #define ACTIVATION fast_tanh
-// #define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+#if defined(ACT_RELU)
+#  define BLOCK_SIZE 512
+#  define ACTIVATION ReLU
+#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+#elif defined(ACT_LEAKY_RELU)
+#  define BLOCK_SIZE 512
+#  define ACTIVATION LeakyReLU
+#  define SOLUTION() multi_solution(input, output, n, m, alpha)
+#elif defined(ACT_ELU)
+#  define BLOCK_SIZE 256
+#  define ACTIVATION ELU
+#  define SOLUTION() multi_solution(input, output, n, m, alpha)
+#elif defined(ACT_GELU)
+#  define BLOCK_SIZE 512
+#  define ACTIVATION GELU
+#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+#elif defined(ACT_SELU)
+#  define BLOCK_SIZE 1024
+#  define ACTIVATION SELU
+#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+#elif defined(ACT_SIGMOID)
+#  define BLOCK_SIZE 512
+#  define ACTIVATION SIGMOID
+#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+#elif defined(ACT_TANH)
+#  define BLOCK_SIZE 512
+#  define ACTIVATION fast_tanh
+#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+#elif defined(ACT_SOFTPLUS)
+#  define BLOCK_SIZE 1024
+#  define ACTIVATION SOFTPLUS
+#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+#else // default: Swish
+#  define BLOCK_SIZE 1024
+#  define ACTIVATION SWISH
+#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
+#endif
 
 #define SOFTPLUS(X) \
     __logf(1 + __expf(X))
@@ -84,17 +89,17 @@ __global__ void activation_kernelx8(const float* __restrict__ A,
                                    float* __restrict__ C,
                                    int n,
                                    float alpha) {
-    int base =  (threadIdx.x + blockIdx.x * blockDim.x) * 8;
+    int base = (threadIdx.x + blockIdx.x * blockDim.x) * 8;
 
     if (base + 7 >= n) {
         for (int j = base; j < n; ++j) {
             const float x = A[j];
-            C[j] = ReLU(x);
+            C[j] = ACTIVATION(x);
         }
         return;
     }
 
-    // Apparently the hardware can issue 256 bits at a time, so do 2 float4s
+    // Hardware can issue 256 bits at a time, so do 2 float4s
     float4 x0 = *reinterpret_cast<const float4*>(A + base);
     float4 x1 = *reinterpret_cast<const float4*>(A + base + 4);
 
@@ -111,40 +116,19 @@ void multi_solution(const float* input, float* output, size_t n, size_t m, float
     int N = static_cast<int>(n * m);
     if (N == 0) return;
 
-    // Each thread does 8 elements
     size_t threads_needed = (static_cast<int>(N) + 7) / 8;
     const int grid = (threads_needed + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     activation_kernelx8<<<grid, BLOCK_SIZE>>>(input, output, N, alpha);
 }
 
-// Uncomment for ReLU, SELU, sigmoid, softplus, swish, and TANH
-// Note: input, output are device pointers
-extern "C" void solution(const float* input, float* output, size_t n, size_t m) {
-  SOLUTION();
+#if defined(ACT_LEAKY_RELU)
+extern "C" void solution(const float* input, float alpha, float* output, size_t n, size_t m)
+#elif defined(ACT_ELU)
+extern "C" void solution(const float* input, float* output, size_t n, size_t m, float alpha)
+#else
+extern "C" void solution(const float* input, float* output, size_t n, size_t m)
+#endif
+{
+    SOLUTION();
 }
-
-// Uncomment for LeakyReLU
-/*
-// Note: input, output are device pointers
-extern "C" void solution(const float* input, float alpha, float* output, size_t n, size_t m) {
-  SOLUTION();
-}
-*/
-
-// Uncomment for GELU
-/*
-// Note: input, output are device pointers
-extern "C" void solution(const float* input, float* output, size_t n, size_t m) {
-  SOLUTION();
-}
-*/
-
-// Uncomment for ELU
-/*
-// Note: input, output are device pointers
-extern "C" void solution(const float* input, float* output, size_t n, size_t m, float alpha) {
-  SOLUTION();
-}
-*/
-
