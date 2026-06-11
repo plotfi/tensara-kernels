@@ -38,8 +38,24 @@ int main(int argc, char** argv) {
     cudaMemcpy(d_ys, h_ys, ys_count * sizeof(uint64_t), cudaMemcpyHostToDevice);
     cudaMemset(d_out_xy, 0, out_xy_count * sizeof(uint64_t));
 
-    solution(d_xs, d_ys, p, d_out_xy, n);
+    for (int _w = 0; _w < 3; _w++)
+        solution(d_xs, d_ys, p, d_out_xy, n);
     cudaDeviceSynchronize();
+
+    cudaEvent_t _perf_start, _perf_stop;
+    cudaEventCreate(&_perf_start);
+    cudaEventCreate(&_perf_stop);
+    const int _perf_iters = 100;
+    cudaEventRecord(_perf_start);
+    for (int _i = 0; _i < _perf_iters; _i++)
+        solution(d_xs, d_ys, p, d_out_xy, n);
+    cudaEventRecord(_perf_stop);
+    cudaEventSynchronize(_perf_stop);
+    float _perf_ms = 0.0f;
+    cudaEventElapsedTime(&_perf_ms, _perf_start, _perf_stop);
+    cudaEventDestroy(_perf_start);
+    cudaEventDestroy(_perf_stop);
+    printf("Avg kernel time: %.4f ms (over %d iters)\n", _perf_ms / _perf_iters, _perf_iters);
 
     cudaMemcpy(h_out_xy, d_out_xy, out_xy_count * sizeof(uint64_t), cudaMemcpyDeviceToHost);
 

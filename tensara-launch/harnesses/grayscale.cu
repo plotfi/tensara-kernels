@@ -32,8 +32,24 @@ int main(int argc, char** argv) {
     cudaMemcpy(d_rgb_image, h_rgb_image, rgb_image_count * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemset(d_grayscale_output, 0, grayscale_output_count * sizeof(float));
 
-    solution(d_rgb_image, d_grayscale_output, height, width, channels);
+    for (int _w = 0; _w < 3; _w++)
+        solution(d_rgb_image, d_grayscale_output, height, width, channels);
     cudaDeviceSynchronize();
+
+    cudaEvent_t _perf_start, _perf_stop;
+    cudaEventCreate(&_perf_start);
+    cudaEventCreate(&_perf_stop);
+    const int _perf_iters = 100;
+    cudaEventRecord(_perf_start);
+    for (int _i = 0; _i < _perf_iters; _i++)
+        solution(d_rgb_image, d_grayscale_output, height, width, channels);
+    cudaEventRecord(_perf_stop);
+    cudaEventSynchronize(_perf_stop);
+    float _perf_ms = 0.0f;
+    cudaEventElapsedTime(&_perf_ms, _perf_start, _perf_stop);
+    cudaEventDestroy(_perf_start);
+    cudaEventDestroy(_perf_stop);
+    printf("Avg kernel time: %.4f ms (over %d iters)\n", _perf_ms / _perf_iters, _perf_iters);
 
     cudaMemcpy(h_grayscale_output, d_grayscale_output, grayscale_output_count * sizeof(float), cudaMemcpyDeviceToHost);
 
