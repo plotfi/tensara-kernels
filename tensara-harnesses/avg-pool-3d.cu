@@ -1,8 +1,4 @@
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <cstdint>
-#include <cuda_runtime.h>
+#include "../kernel-implementation/harness.cuh"
 
 extern "C" void solution(const float* input, int kernel_size, int stride, int padding, float* output, size_t H, size_t W, size_t D);
 
@@ -35,24 +31,7 @@ int main(int argc, char** argv) {
     cudaMemcpy(d_input, h_input, input_count * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemset(d_output, 0, output_count * sizeof(float));
 
-    for (int _w = 0; _w < 3; _w++)
-        solution(d_input, kernel_size, stride, padding, d_output, H, W, D);
-    cudaDeviceSynchronize();
-
-    cudaEvent_t _perf_start, _perf_stop;
-    cudaEventCreate(&_perf_start);
-    cudaEventCreate(&_perf_stop);
-    const int _perf_iters = 100;
-    cudaEventRecord(_perf_start);
-    for (int _i = 0; _i < _perf_iters; _i++)
-        solution(d_input, kernel_size, stride, padding, d_output, H, W, D);
-    cudaEventRecord(_perf_stop);
-    cudaEventSynchronize(_perf_stop);
-    float _perf_ms = 0.0f;
-    cudaEventElapsedTime(&_perf_ms, _perf_start, _perf_stop);
-    cudaEventDestroy(_perf_start);
-    cudaEventDestroy(_perf_stop);
-    printf("Avg kernel time: %.4f ms (over %d iters)\n", _perf_ms / _perf_iters, _perf_iters);
+    BENCHMARK(solution(d_input, kernel_size, stride, padding, d_output, H, W, D));
 
     cudaMemcpy(h_output, d_output, output_count * sizeof(float), cudaMemcpyDeviceToHost);
 

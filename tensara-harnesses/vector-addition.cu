@@ -1,8 +1,4 @@
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <cstdint>
-#include <cuda_runtime.h>
+#include "../kernel-implementation/harness.cuh"
 
 #include "../kernel-implementation/vector-addition.cu"
 extern "C" void solution(const float* d_input1, const float* d_input2, float* d_output, size_t n);
@@ -38,24 +34,7 @@ int main(int argc, char** argv) {
     cudaMemcpy(d_d_input2, h_d_input2, d_input2_count * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemset(d_d_output, 0, d_output_count * sizeof(float));
 
-    for (int _w = 0; _w < 3; _w++)
-        solution(d_d_input1, d_d_input2, d_d_output, n);
-    cudaDeviceSynchronize();
-
-    cudaEvent_t _perf_start, _perf_stop;
-    cudaEventCreate(&_perf_start);
-    cudaEventCreate(&_perf_stop);
-    const int _perf_iters = 100;
-    cudaEventRecord(_perf_start);
-    for (int _i = 0; _i < _perf_iters; _i++)
-        solution(d_d_input1, d_d_input2, d_d_output, n);
-    cudaEventRecord(_perf_stop);
-    cudaEventSynchronize(_perf_stop);
-    float _perf_ms = 0.0f;
-    cudaEventElapsedTime(&_perf_ms, _perf_start, _perf_stop);
-    cudaEventDestroy(_perf_start);
-    cudaEventDestroy(_perf_stop);
-    printf("Avg kernel time: %.4f ms (over %d iters)\n", _perf_ms / _perf_iters, _perf_iters);
+    BENCHMARK(solution(d_d_input1, d_d_input2, d_d_output, n));
 
     cudaMemcpy(h_d_output, d_d_output, d_output_count * sizeof(float), cudaMemcpyDeviceToHost);
 

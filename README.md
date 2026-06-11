@@ -5,11 +5,22 @@ CUDA kernel implementations with performance-measuring harnesses. Each harness r
 ## Repository Layout
 
 ```
-tensara-harnesses/        # One .cu harness per kernel problem
-kernel-implementation/    # Kernel implementations
-Makefile                  # Build system
-build_all.sh              # Build every kernel
-run_all.sh                # Run every built binary
+tensara-harnesses/             # One .cu harness per kernel problem
+kernel-implementation/         # Kernel implementations
+kernel-implementation/harness.cuh  # Shared launch/benchmark helpers
+Makefile                       # Build system
+build_all.sh                   # Build every kernel
+run_all.sh                     # Run every built binary
+```
+
+Each harness includes `harness.cuh` and wraps its `solution()` call in the
+`BENCHMARK(...)` macro, which runs the warmup + timed loop and prints the
+average kernel time:
+
+```c++
+#include "../kernel-implementation/harness.cuh"
+...
+BENCHMARK(solution(d_a, d_b, d_c, m, n, k));
 ```
 
 ## Building
@@ -54,8 +65,9 @@ Done.
 
 ## Adding a New Kernel
 
-1. Create `tensara-harnesses/my-kernel.cu` with a `main()` that allocates data, calls `solution()`, and prints results. Use an existing harness as a template (e.g. `matrix-multiplication.cu`). Declare but don't define `solution()`:
-   ```c
+1. Create `tensara-harnesses/my-kernel.cu` with a `main()` that allocates data, calls `solution()` via `BENCHMARK(...)`, and prints results. Use an existing harness as a template (e.g. `matrix-multiplication.cu`). Include the shared helpers and declare but don't define `solution()`:
+   ```c++
+   #include "../kernel-implementation/harness.cuh"
    extern "C" void solution(/* your args */);
    ```
 
