@@ -1,10 +1,10 @@
 #include "../kernel-implementation/harness.cuh"
-#include "../kernel-implementation/l2-norm.cu"
+#include "../kernel-implementation/max-normalize.cu"
 
 extern "C" void solution(const float* X, float* Y, size_t B, size_t D);
 
 int main() {
-    harness::begin("l2-norm");
+    harness::begin("max-normalize");
 
     size_t B = 8;
     size_t D = 64;

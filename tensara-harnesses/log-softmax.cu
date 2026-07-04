@@ -1,4 +1,5 @@
 #include "../kernel-implementation/harness.cuh"
+#include "../kernel-implementation/log-softmax.cu"
 
 extern "C" void solution(const float* input, float* output, size_t M, size_t N);
 

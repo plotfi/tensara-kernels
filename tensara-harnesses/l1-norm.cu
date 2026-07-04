@@ -1,4 +1,5 @@
 #include "../kernel-implementation/harness.cuh"
+#include "../kernel-implementation/l1-norm.cu"
 
 extern "C" void solution(const float* X, float* Y, size_t B, size_t D);
 

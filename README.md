@@ -101,3 +101,31 @@ Harnesses are built from the helpers in `kernel-implementation/harness.cuh`:
    ./build/bin/my-kernel.exe
    ```
 
+## Generic Reduction Kernel
+
+`kernel-implementation/reduction.cuh` is a one-block-per-row kernel that reduces
+each row to a scalar, finalizes it, then rewrites each element as a function of
+`(element, scalar)`. An instantiation defines five macros and includes it:
+
+| Macro | Meaning | Default |
+|---|---|---|
+| `REDUCE_INIT` | reduction identity | `0.0f` |
+| `COMBINE(A, B)` | reduction combine op | `(A) + (B)` |
+| `MAP_OP(X)` | map element before reducing | required |
+| `FINALIZE(ACC, D)` | finalize the reduced scalar (`D` = row length) | required |
+| `WRITE_OP(X, ACC)` | per-element output transform | required |
+
+Six kernels are built on it (`kernel-implementation/{rms-norm,l1-norm,l2-norm,max-normalize,mean-subtract,log-softmax}.cu`):
+
+| Kernel | `MAP_OP` | `COMBINE` | `FINALIZE` | `WRITE_OP` |
+|---|---|---|---|---|
+| rms-norm | `x*x` | sum | `rsqrt(acc/D + eps)` | `x * acc` |
+| l1-norm | `\|x\|` | sum | `acc` | `x / acc` |
+| l2-norm | `x*x` | sum | `sqrt(acc)` | `x / acc` |
+| max-normalize | `\|x\|` | `fmaxf` | `acc` | `x / acc` |
+| mean-subtract | `x` | sum | `acc / D` | `x - acc` |
+| log-softmax | `exp(x)` | sum | `log(acc)` | `x - acc` |
+
+Assumes row length is a multiple of 4 (float4 vectorized) and `BLOCK_SIZE` is a
+power of two. Build any of them directly, e.g. `make build/bin/l2-norm.exe`.
+

@@ -14,9 +14,16 @@ make build/bin/tanh.exe          NVCCFLAGS='-O2 -std=c++17 -DACT_TANH'
 make build/bin/hard-sigmoid.exe  NVCCFLAGS='-O2 -std=c++17 -DACT_HARD_SIGMOID'
 
 make build/bin/vector-addition.exe
-make build/bin/rms-norm.exe
 make build/bin/matrix-vector.exe
 make build/bin/conv-1d.exe
+
+# Reduction kernels (share kernel-implementation/reduction.cuh)
+make build/bin/rms-norm.exe
+make build/bin/l1-norm.exe
+make build/bin/l2-norm.exe
+make build/bin/max-normalize.exe
+make build/bin/mean-subtract.exe
+make build/bin/log-softmax.exe
 
 # make build/bin/conv-2d.exe
 # make build/bin/softmax.exe
@@ -48,10 +55,7 @@ make build/bin/conv-1d.exe
 # make build/bin/histogram.exe
 # make build/bin/huber-loss.exe
 # make build/bin/kl-loss.exe
-# make build/bin/l1-norm.exe
-# make build/bin/l2-norm.exe
 # make build/bin/layer-norm.exe
-# make build/bin/log-softmax.exe
 # make build/bin/lower-trig-matmul.exe
 # make build/bin/matmul-3d.exe
 # make build/bin/matmul-4d.exe
