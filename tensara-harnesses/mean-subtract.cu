@@ -1,5 +1,4 @@
 #include "../kernel-implementation/harness.cuh"
-#include "../kernel-implementation/mean-subtract.cu"
 
 extern "C" void solution(const float* X, float* Y, size_t B, size_t D);
 

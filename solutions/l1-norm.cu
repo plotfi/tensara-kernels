@@ -1,12 +1,10 @@
 #include <cuda_runtime.h>
 
-// Max-normalize: y = x / max(|x|)   (infinity-norm normalization)
-#define REDUCE_INIT       0.0f
-#define COMBINE(A, B)     fmaxf(A, B)
+// L1-norm: y = x / sum(|x|)
 #define MAP_OP(X)         fabsf(X)
 #define FINALIZE(ACC, D)  (ACC)
 #define WRITE_OP(X, ACC)  __fdividef(X, ACC)
-#include "reduction.cuh"
+#include "../kernel-implementation/reduction.cuh"
 
 // Note: X, Y are device pointers
 extern "C" void solution(const float* X, float* Y, size_t B, size_t D) {

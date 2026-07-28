@@ -4,7 +4,7 @@
 #define MAP_OP(X)         __expf(X)
 #define FINALIZE(ACC, D)  logf(ACC)
 #define WRITE_OP(X, ACC)  ((X) - (ACC))
-#include "reduction.cuh"
+#include "../kernel-implementation/reduction.cuh"
 
 // Note: input, output are device pointers
 extern "C" void solution(const float* input, float* output, size_t M, size_t N) {

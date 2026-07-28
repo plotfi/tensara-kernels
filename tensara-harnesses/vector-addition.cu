@@ -1,5 +1,4 @@
 #include "../kernel-implementation/harness.cuh"
-#include "../kernel-implementation/vector-addition.cu"
 
 extern "C" void solution(const float* d_input1, const float* d_input2, float* d_output, size_t n);
 
