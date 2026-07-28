@@ -1,0 +1,8 @@
+# Build artifacts
+build/
+*.o
+*.exe
+
+# Editor scratch
+*.swp
+*~

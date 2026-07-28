@@ -1,5 +1,4 @@
 #include "../kernel-implementation/harness.cuh"
-#include "../kernel-implementation/activations.cu"
 
 extern "C" void solution(const float* input, float* output, size_t n, size_t m);
 

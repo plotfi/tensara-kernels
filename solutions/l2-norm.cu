@@ -1,10 +1,10 @@
 #include <cuda_runtime.h>
 
-// L1-norm: y = x / sum(|x|)
-#define MAP_OP(X)         fabsf(X)
-#define FINALIZE(ACC, D)  (ACC)
+// L2-norm: y = x / sqrt(sum(x^2))
+#define MAP_OP(X)         ((X) * (X))
+#define FINALIZE(ACC, D)  sqrtf(ACC)
 #define WRITE_OP(X, ACC)  __fdividef(X, ACC)
-#include "reduction.cuh"
+#include "../kernel-implementation/reduction.cuh"
 
 // Note: X, Y are device pointers
 extern "C" void solution(const float* X, float* Y, size_t B, size_t D) {
