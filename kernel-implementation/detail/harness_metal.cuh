@@ -236,6 +236,15 @@ inline void dispatch(MTL::ComputePipelineState* pso,
     dispatch(pso, buffers, {}, grid, threadsPerGroup);
 }
 
+// Parity with the CUDA backend's to_host(): with shared storage the "device"
+// pointer is already host-visible, so this is a no-op that returns it unchanged
+// (the scratch buffer is unused). Read through the returned pointer.
+template <typename T>
+inline const T* to_host(T* /*scratch*/, const T* device_src, size_t n) {
+    (void)n;
+    return device_src;
+}
+
 // Run `launch` `warmup` times untimed, then time `iters` launches with a host
 // clock and print the average per-launch time. `launch` is expected to commit
 // AND wait (dispatch does), so wall time is GPU time.

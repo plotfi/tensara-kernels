@@ -84,6 +84,17 @@ struct Buffer {
     operator T*() { return dev; }
 };
 
+// Return a host-readable view of `n` T's at a device pointer, for reading small
+// metadata (e.g. a shape array) host-side before configuring a launch. On CUDA
+// this copies into `scratch` and returns it; on the Metal backend, where storage
+// is shared, it's a no-op that returns `device_src` unchanged. Always read
+// through the returned pointer so the call site is identical on both backends.
+template <typename T>
+inline const T* to_host(T* scratch, const T* device_src, size_t n) {
+    cudaMemcpy(scratch, device_src, n * sizeof(T), cudaMemcpyDeviceToHost);
+    return scratch;
+}
+
 // Run `launch` `warmup` times untimed (to warm clocks/caches), then time
 // `iters` launches with CUDA events and print the average per-launch time.
 template <typename Fn>
