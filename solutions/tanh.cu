@@ -1,8 +1,6 @@
 // Solution for "tanh" (elementwise activation).
-// Selects the op, then pulls in the shared vectorized activation template.
-// Guarded so building it alongside a test compiled with -DACT_TANH (for the test's
-// CPU reference) doesn't trigger a macro-redefinition warning.
-#ifndef ACT_TANH
-#define ACT_TANH
-#endif
 #include "../kernel-implementation/activation.cuh"
+
+extern "C" void solution(const float* input, float* output, size_t n, size_t m) {
+    multi_solution<tanh_act, 512>(input, output, n, m, 0.0f);
+}

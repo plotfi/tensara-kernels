@@ -1,141 +1,97 @@
+#pragma once
 #include <cuda_runtime.h>
 #include <math_constants.h>
 
-// Select the activation at compile time with -D<flag>:
+// Templated on ACTIVATION function pointer and BLOCK_SIZE so each activation
+// gets its own specialized kernel with a tuned launch config. The activation
+// is inlined at every call via __forceinline__ on the free function.
 //
-//   -DACT_RELU         ReLU
-//   -DACT_LEAKY_RELU   LeakyReLU  (solution takes `float alpha` param)
-//   -DACT_ELU          ELU        (solution takes `float alpha` param)
-//   -DACT_GELU         GELU
-//   -DACT_SELU         SELU
-//   -DACT_SIGMOID      Sigmoid
-//   -DACT_TANH         Tanh
-//   -DACT_SOFTPLUS     Softplus
-//   -DACT_SWISH        Swish  (default if nothing is defined)
+// __restrict__ tells the compiler A and C do not alias, unlocking better
+// instruction scheduling (loads and stores can be reordered freely, all loads
+// can be issued up front to hide memory latency).
+//
+// n is int (32 bit) instead of size_t (64 bit). 32 bit index math lowers to
+// simpler SASS: address calcs and loop increments avoid the 64 bit multiply
+// and carry chain that size_t forces. Meaningful savings on tight loops.
+template <float (*ACTIVATION)(float, float), int BLOCK_SIZE>
+__global__ void activation_kernelx8(const float* __restrict__ A,
+                                    float* __restrict__ C,
+                                    int n,
+                                    float alpha) {
+    // Each thread handles 8 elements. B200 tensor cores and load/store units
+    // can move 256 bits at a time (two float4s back to back), so 8 floats per
+    // thread lets the compiler keep two 128 bit loads in flight simultaneously,
+    // maxing out memory-level parallelism per thread.
+    int base = (threadIdx.x + blockIdx.x * blockDim.x) * 8;
 
-#if defined(ACT_RELU)
-#  define BLOCK_SIZE 512
-#  define ACTIVATION ReLU
-#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-#elif defined(ACT_LEAKY_RELU)
-#  define BLOCK_SIZE 512
-#  define ACTIVATION LeakyReLU
-#  define SOLUTION() multi_solution(input, output, n, m, alpha)
-#elif defined(ACT_ELU)
-#  define BLOCK_SIZE 256
-#  define ACTIVATION ELU
-#  define SOLUTION() multi_solution(input, output, n, m, alpha)
-#elif defined(ACT_GELU)
-#  define BLOCK_SIZE 512
-#  define ACTIVATION GELU
-#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-#elif defined(ACT_SELU)
-#  define BLOCK_SIZE 1024
-#  define ACTIVATION SELU
-#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-#elif defined(ACT_SIGMOID)
-#  define BLOCK_SIZE 512
-#  define ACTIVATION SIGMOID
-#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-#elif defined(ACT_HARD_SIGMOID)
-#  define BLOCK_SIZE 512
-#  define ACTIVATION HARD_SIGMOID
-#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-#elif defined(ACT_TANH)
-#  define BLOCK_SIZE 512
-#  define ACTIVATION fast_tanh
-#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-#elif defined(ACT_SOFTPLUS)
-#  define BLOCK_SIZE 1024
-#  define ACTIVATION SOFTPLUS
-#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-#else // default: Swish
-#  define BLOCK_SIZE 1024
-#  define ACTIVATION SWISH
-#  define SOLUTION() multi_solution(input, output, n, m, 0.0f)
-#endif
+    // Scalar tail for the last partial group of 8. Uses the same ACTIVATION
+    // so the tail matches the vectorized path exactly.
+    if (base + 7 >= n) {
+        for (int j = base; j < n; ++j) {
+            C[j] = ACTIVATION(A[j], alpha);
+        }
+        return;
+    }
 
-#define SOFTPLUS(X) \
-    __logf(1 + __expf(X))
+    // Both float4 loads issued back to back. The compiler keeps both
+    // LDG.E.128 instructions in flight without waiting on either, giving the
+    // memory subsystem two outstanding requests per thread to hide HBM latency.
+    float4 x0 = *reinterpret_cast<const float4*>(A + base);
+    float4 x1 = *reinterpret_cast<const float4*>(A + base + 4);
 
-#define SELU(X) \
-    1.0507f * (fmax(0.0f, X) + fmin(0.0f, 1.67326f * (__expf(X) - 1)))
+    // 8 independent activation evaluations per thread. With __forceinline__ on
+    // each activation, these lower to 8 straight-line SFU or ALU sequences
+    // with no register spills and full ILP exposure.
+    x0.x = ACTIVATION(x0.x, alpha); x0.y = ACTIVATION(x0.y, alpha);
+    x0.z = ACTIVATION(x0.z, alpha); x0.w = ACTIVATION(x0.w, alpha);
+    x1.x = ACTIVATION(x1.x, alpha); x1.y = ACTIVATION(x1.y, alpha);
+    x1.z = ACTIVATION(x1.z, alpha); x1.w = ACTIVATION(x1.w, alpha);
 
-#define ELU(X) \
-    X > 0.0f ? X : (alpha * (__expf(X) - 1))
+    // Two 128 bit stores, mirroring the load pattern. STG.E.128 x 2.
+    *reinterpret_cast<float4*>(C + base    ) = x0;
+    *reinterpret_cast<float4*>(C + base + 4) = x1;
+}
 
-#define HARD_SIGMOID(X) (X <= -3.0f ? 0.0f : \
-                         (X >= 3.0f ? 1.0f : \
-                          __fdividef(X + 3.0f, 6.0f)))
-#define SIGMOID(X) __fdividef(1.0f, 1.0f + __expf(-(X)))
+// Host-side launcher. Marked __forceinline__ so it collapses into solution()
+// at the call site. No perf impact worth measuring, just cleaner codegen.
+template <float (*ACTIVATION)(float, float), int BLOCK_SIZE>
+__forceinline__ void multi_solution(const float* input, float* output, size_t n, size_t m,
+                                    float alpha) {
+    // Cast to int for the same 32 bit arithmetic reason as the kernel.
+    int N = static_cast<int>(n * m);
+    if (N == 0) return;
 
-#define SWISH(X) \
-  (X * (SIGMOID(X)))
+    // Each thread does 8 elements, so we need ceil(N/8) threads total.
+    int threads_needed = (N + 7) / 8;
+    const int grid = (threads_needed + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-#define LeakyReLU(X) \
-  fmax(X, X * alpha)
-
-#define ReLU(v) fmax(v, 0.0f)
-
-#if 0
-#define kSqrt2OverPi sqrtf(2.0f / M_PI)
-#else
-#define kSqrt2OverPi 0.7978845608028654f
-#endif
-#define kCoef 0.044715f
-#define GELU(x) \
-    ((0.5f * x) * \
-     (1.0f + fast_tanh(kSqrt2OverPi * (x + (kCoef * (x * x * x))))))
+    activation_kernelx8<ACTIVATION, BLOCK_SIZE>
+        <<<grid, BLOCK_SIZE>>>(input, output, N, alpha);
+}
 
 __device__ __forceinline__ float fast_tanh(float x) {
     float e2x = __expf(2.0f * x);
     return __fdividef(e2x - 1.0f, e2x + 1.0f);
 }
 
-__global__ void activation_kernelx8(const float* __restrict__ A,
-                                   float* __restrict__ C,
-                                   int n,
-                                   float alpha) {
-    int base = (threadIdx.x + blockIdx.x * blockDim.x) * 8;
-
-    if (base + 7 >= n) {
-        for (int j = base; j < n; ++j) {
-            const float x = A[j];
-            C[j] = ACTIVATION(x);
-        }
-        return;
-    }
-
-    // Hardware can issue 256 bits at a time, so do 2 float4s
-    float4 x0 = *reinterpret_cast<const float4*>(A + base);
-    float4 x1 = *reinterpret_cast<const float4*>(A + base + 4);
-
-    x0.x = ACTIVATION(x0.x); x0.y = ACTIVATION(x0.y);
-    x0.z = ACTIVATION(x0.z); x0.w = ACTIVATION(x0.w);
-    x1.x = ACTIVATION(x1.x); x1.y = ACTIVATION(x1.y);
-    x1.z = ACTIVATION(x1.z); x1.w = ACTIVATION(x1.w);
-
-    *reinterpret_cast<float4*>(C + base    ) = x0;
-    *reinterpret_cast<float4*>(C + base + 4) = x1;
+// All activations share the same (float x, float alpha) signature. Stateless
+// activations just ignore alpha. This uniform signature lets the kernel take
+// any of them as a template argument without a functor wrapper.
+__device__ __forceinline__ float relu(float x, float)             { return x > 0.0f ? x : 0.0f; }
+__device__ __forceinline__ float leaky_relu(float x, float alpha) { return x > 0.0f ? x : x * alpha; }
+__device__ __forceinline__ float elu(float x, float alpha)        { return x > 0.0f ? x : alpha * (__expf(x) - 1.0f); }
+__device__ __forceinline__ float sigmoid(float x, float)          { return __fdividef(1.0f, 1.0f + __expf(-x)); }
+__device__ __forceinline__ float swish(float x, float)            { return x * __fdividef(1.0f, 1.0f + __expf(-x)); }
+__device__ __forceinline__ float tanh_act(float x, float)         { return fast_tanh(x); }
+__device__ __forceinline__ float gelu(float x, float) {
+    constexpr float kSqrt2OverPi = 0.7978845608028654f;
+    constexpr float kCoef = 0.044715f;
+    return 0.5f * x * (1.0f + fast_tanh(kSqrt2OverPi * (x + kCoef * x * x * x)));
 }
-
-void multi_solution(const float* input, float* output, size_t n, size_t m, float alpha) {
-    int N = static_cast<int>(n * m);
-    if (N == 0) return;
-
-    size_t threads_needed = (static_cast<int>(N) + 7) / 8;
-    const int grid = (threads_needed + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-    activation_kernelx8<<<grid, BLOCK_SIZE>>>(input, output, N, alpha);
+__device__ __forceinline__ float selu(float x, float) {
+    return 1.0507f * (fmaxf(0.0f, x) + fminf(0.0f, 1.67326f * (__expf(x) - 1.0f)));
 }
-
-#if defined(ACT_LEAKY_RELU)
-extern "C" void solution(const float* input, float alpha, float* output, size_t n, size_t m)
-#elif defined(ACT_ELU)
-extern "C" void solution(const float* input, float* output, size_t n, size_t m, float alpha)
-#else
-extern "C" void solution(const float* input, float* output, size_t n, size_t m)
-#endif
-{
-    SOLUTION();
+__device__ __forceinline__ float softplus(float x, float)         { return __logf(1.0f + __expf(x)); }
+__device__ __forceinline__ float hard_sigmoid(float x, float) {
+    return x <= -3.0f ? 0.0f : (x >= 3.0f ? 1.0f : __fdividef(x + 3.0f, 6.0f));
 }

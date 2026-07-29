@@ -1,8 +1,6 @@
-// Solution for "elu" (elementwise activation).
-// Selects the op, then pulls in the shared vectorized activation template.
-// Guarded so building it alongside a test compiled with -DACT_ELU (for the test's
-// CPU reference) doesn't trigger a macro-redefinition warning.
-#ifndef ACT_ELU
-#define ACT_ELU
-#endif
+// Solution for "elu" (elementwise activation; takes an alpha parameter).
 #include "../kernel-implementation/activation.cuh"
+
+extern "C" void solution(const float* input, float* output, size_t n, size_t m, float alpha) {
+    multi_solution<elu, 256>(input, output, n, m, alpha);
+}
