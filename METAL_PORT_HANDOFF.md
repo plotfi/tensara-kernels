@@ -65,6 +65,14 @@ extern "C" void solution(const float* input, float* output, size_t n, size_t m) 
 The CUDA build links `<k>.cu`; the Metal build links `<k>.cpp` — never both — so
 `solution()` is defined once per binary.
 
+**Shared shader headers.** Metal's runtime source compiler has no include path
+for local headers, so `harness_metal.cuh` inlines local `#include "x.metal.h"`
+directives itself (from the shader dir) before compiling. The 10 activation
+shaders use this: they all `#include "activation.metal.h"` (functor structs +
+the templated `activation_x8` kernel body, a port of `activation.cuh`) and just
+call `activation_x8<Functor>(...)`. `build_metal.sh` stages `*.metal.h` next to
+the shaders. If an activation shader fails to compile, check the inlined source.
+
 **metal-cpp implementation TU:** `NS_PRIVATE_IMPLEMENTATION` /
 `MTL_PRIVATE_IMPLEMENTATION` are defined in `harness_metal.cuh`, **guarded by
 `HARNESS_METAL_IMPL`**. `build_metal.sh` compiles the wrapper object with

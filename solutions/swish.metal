@@ -1,12 +1,10 @@
-// Metal shader for "swish" (elementwise activation).
-#include <metal_stdlib>
-using namespace metal;
+// Metal shader for "swish" -- unified activation kernel, op = Swish.
+#include "activation.metal.h"
 
-kernel void solution(device const float* in [[buffer(0)]],
-                     device float*       out [[buffer(1)]],
-                     constant uint&      n   [[buffer(2)]],
-                     uint id [[thread_position_in_grid]]) {
-    if (id >= n) return;
-    float x = in[id];
-    out[id] = x / (1.0f + exp(-x));
+kernel void solution(device const float* A [[buffer(0)]],
+                     device float*       C [[buffer(1)]],
+                     constant uint&      n [[buffer(2)]],
+                     constant float&     alpha [[buffer(3)]],
+                     uint gid [[thread_position_in_grid]]) {
+    activation_x8<Swish>(A, C, n, alpha, gid);
 }

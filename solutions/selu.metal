@@ -1,12 +1,10 @@
-// Metal shader for "selu" (elementwise activation).
-#include <metal_stdlib>
-using namespace metal;
+// Metal shader for "selu" -- unified activation kernel, op = Selu.
+#include "activation.metal.h"
 
-kernel void solution(device const float* in [[buffer(0)]],
-                     device float*       out [[buffer(1)]],
-                     constant uint&      n   [[buffer(2)]],
-                     uint id [[thread_position_in_grid]]) {
-    if (id >= n) return;
-    float x = in[id];
-    out[id] = 1.0507f * (fmax(0.0f, x) + fmin(0.0f, 1.67326f * (exp(x) - 1.0f)));
+kernel void solution(device const float* A [[buffer(0)]],
+                     device float*       C [[buffer(1)]],
+                     constant uint&      n [[buffer(2)]],
+                     constant float&     alpha [[buffer(3)]],
+                     uint gid [[thread_position_in_grid]]) {
+    activation_x8<Selu>(A, C, n, alpha, gid);
 }

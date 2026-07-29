@@ -35,6 +35,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -150,15 +151,39 @@ inline std::string& shader_dir() {
     return d;
 }
 
-inline MTL::ComputePipelineState* compile_pipeline(const std::string& metal_path,
-                                                   const std::string& fn_name) {
-    std::ifstream file(metal_path);
-    if (!file.is_open()) {
-        fprintf(stderr, "harness: failed to open shader %s\n", metal_path.c_str());
+// Metal's runtime source compiler has no include path for local headers, so we
+// inline local (quoted) #include "..." directives ourselves, resolving them
+// against `dir`. This lets shaders share a common .metal header (e.g. the unified
+// activation header). System includes (<...>) are left untouched; `seen` gives
+// pragma-once behavior.
+inline void inline_metal_includes(const std::string& path, const std::string& dir,
+                                  std::set<std::string>& seen, std::string& out) {
+    std::ifstream f(path);
+    if (!f.is_open()) {
+        fprintf(stderr, "harness: cannot open shader %s\n", path.c_str());
         std::exit(1);
     }
-    std::ostringstream ss; ss << file.rdbuf();
-    std::string src = ss.str();
+    std::string line;
+    while (std::getline(f, line)) {
+        size_t hp = line.find("#include");
+        size_t q1 = (hp == std::string::npos) ? std::string::npos : line.find('"', hp);
+        if (hp != std::string::npos && q1 != std::string::npos) {
+            size_t q2 = line.find('"', q1 + 1);
+            std::string inc = line.substr(q1 + 1, q2 - (q1 + 1));
+            if (seen.insert(inc).second)
+                inline_metal_includes(dir + "/" + inc, dir, seen, out);
+            continue;  // replace the local #include with its contents (once)
+        }
+        out += line;
+        out += '\n';
+    }
+}
+
+inline MTL::ComputePipelineState* compile_pipeline(const std::string& metal_path,
+                                                   const std::string& fn_name) {
+    std::set<std::string> seen;
+    std::string src;
+    inline_metal_includes(metal_path, shader_dir(), seen, src);
 
     NS::Error* err = nullptr;
     NS::String* s = NS::String::string(src.c_str(), NS::UTF8StringEncoding);

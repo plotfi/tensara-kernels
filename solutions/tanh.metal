@@ -1,12 +1,10 @@
-// Metal shader for "tanh" (elementwise activation).
-#include <metal_stdlib>
-using namespace metal;
+// Metal shader for "tanh" -- unified activation kernel, op = TanhAct.
+#include "activation.metal.h"
 
-kernel void solution(device const float* in [[buffer(0)]],
-                     device float*       out [[buffer(1)]],
-                     constant uint&      n   [[buffer(2)]],
-                     uint id [[thread_position_in_grid]]) {
-    if (id >= n) return;
-    float x = in[id];
-    out[id] = tanh(x);
+kernel void solution(device const float* A [[buffer(0)]],
+                     device float*       C [[buffer(1)]],
+                     constant uint&      n [[buffer(2)]],
+                     constant float&     alpha [[buffer(3)]],
+                     uint gid [[thread_position_in_grid]]) {
+    activation_x8<TanhAct>(A, C, n, alpha, gid);
 }

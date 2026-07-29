@@ -15,6 +15,11 @@ CXX=${CXX:-clang++}
 OUT=build/metal
 mkdir -p "$OUT"
 
+# Shared .metal headers (e.g. the unified activation header) live in
+# kernel-implementation/ but must be staged next to the shaders so the harness's
+# local-include inliner can resolve them at runtime.
+cp kernel-implementation/*.metal.h "$OUT/" 2>/dev/null || true
+
 CXXFLAGS="-std=c++17 -O2 -x c++ -DHARNESS_METAL -I kernel-implementation -I$METAL_CPP"
 LDFLAGS="-framework Metal -framework Foundation"
 
