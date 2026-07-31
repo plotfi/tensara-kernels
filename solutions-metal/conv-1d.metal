@@ -1,5 +1,5 @@
 // Metal shader for "conv-1d".
-#include "conv-1d.metal.h"
+#include "convolution.metal.h"
 
 kernel void solution(device const float* A [[buffer(0)]],
                      device const float* B [[buffer(1)]],

@@ -1,4 +1,4 @@
-#include "../kernel-implementation/conv-1d.cuh"
+#include "../kernel-implementation/convolution.cuh"
 
 extern "C" void solution(const float* A, const float* B, float* C, size_t N, size_t K) {
     if (N == 0) return;

@@ -1,11 +1,10 @@
-#include "../kernel-implementation/avg-pool-1d.cuh"
+#include "../kernel-implementation/pooling.cuh"
 
 extern "C" void solution(const float* input, int kernel_size, int stride, int padding, float* output, size_t H) {
     const int BLOCK_SIZE = 256;
     int N = static_cast<int>(H);
-    int Hout = (N + 2 * padding - kernel_size) / stride + 1;
-    float inv_k = 1.0f / static_cast<float>(kernel_size);
-    const int grid = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    int Hout = pool_out_size(N, kernel_size, padding, 1, stride);
+    const int grid = (Hout + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    avgpool1d_kernel<<<grid, BLOCK_SIZE>>>(input, output, kernel_size, stride, padding, N, Hout, inv_k);
+    pool1d_kernel<AvgPoolOp><<<grid, BLOCK_SIZE>>>(input, output, kernel_size, stride, padding, 1, N, Hout);
 }
