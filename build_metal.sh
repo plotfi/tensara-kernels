@@ -10,7 +10,7 @@
 #   HARNESS_SHADER_DIR=build/metal ./build/metal/relu
 set -e
 
-METAL_CPP=${METAL_CPP:-../metal-kernels/metal-cpp/metal-cpp}
+METAL_CPP=${METAL_CPP:-metal-cpp}
 CXX=${CXX:-clang++}
 OUT=build/metal
 mkdir -p "$OUT"
