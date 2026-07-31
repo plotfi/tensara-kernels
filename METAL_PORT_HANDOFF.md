@@ -21,13 +21,13 @@
 ## What this repo is
 
 86 GPU "kernel problems". Each has:
-- `tensara-harnesses/<k>.cu` — a **backend-agnostic** benchmark harness: seeds
+- `kernel-harnesses/<k>.cu` — a **backend-agnostic** benchmark harness: seeds
   RNG, allocates `harness::Buffer<T>`s, fills inputs, `BENCHMARK(solution(...))`,
   previews output. No Metal code, no `#if`.
-- `solutions/<k>.cu` — the **CUDA** `solution()` (a kernel launch).
-- `solutions/<k>.metal` — the **Metal** shader; its kernel function is named
+- `solutions-cuda/<k>.cu` — the **CUDA** `solution()` (a kernel launch).
+- `solutions-metal/<k>.metal` — the **Metal** shader; its kernel function is named
   `solution`.
-- `solutions/<k>.cpp` — the **Metal** `solution()` wrapper (see below).
+- `solutions-metal/<k>.cpp` — the **Metal** `solution()` wrapper (see below).
 
 ## How the cross-platform harness works (read this before editing)
 
@@ -45,7 +45,7 @@ The key idea that keeps the harness identical on both backends:
 - So the harness calls `solution(a, b, c, n)` the same way on both, and the
   `extern "C" void solution(const float*, ...)` declaration is identical.
 
-On Metal, `solution()` is provided by `solutions/<k>.cpp`:
+On Metal, `solution()` is provided by `solutions-metal/<k>.cpp`:
 ```cpp
 #include "../kernel-implementation/harness.cuh"
 extern "C" void solution(const float* input, float* output, size_t n, size_t m) {
@@ -127,7 +127,7 @@ NOT verified (your job):
 3. **Correctness:** `tests/` has CPU reference implementations (CUDA-only build).
    Easiest check on Metal is to eyeball `preview` output, or port a couple of
    `tests/test-<k>.cu` CPU references into a tiny Metal checker. The 22 real
-   kernels and their exact formulas are in `solutions/<k>.metal` and mirrored in
+   kernels and their exact formulas are in `solutions-metal/<k>.metal` and mirrored in
    `tests/test-<k>.cu`.
 4. The **64 stub** kernels build and dispatch a **no-op** shader (output stays
    zero) — that's expected; they mirror the CUDA `// TODO: implement` stubs.
@@ -156,6 +156,6 @@ NOT verified (your job):
 
 - Don't add `micro-tensor` as a dependency (reference only).
 - Don't edit the harnesses to add Metal `#if` branches — the whole point is that
-  they stay backend-agnostic; all Metal logic lives in `solutions/<k>.cpp` +
+  they stay backend-agnostic; all Metal logic lives in `solutions-metal/<k>.cpp` +
   `harness_metal.cuh`.
-- Don't change the CUDA `solutions/<k>.cu` or `tests/`.
+- Don't change the CUDA `solutions-cuda/<k>.cu` or `tests/`.

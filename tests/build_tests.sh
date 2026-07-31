@@ -1,6 +1,6 @@
 #!/bin/bash
-# Build the reference-suite tests (kernels implemented in solutions/) into
-# tests/build/bin/. Each test links its solutions/<kernel>.cu, same as the spec
+# Build the reference-suite tests (kernels implemented in solutions-cuda/) into
+# tests/build/bin/. Each test links its solutions-cuda/<kernel>.cu, same as the spec
 # suite. The activation test is one source compiled once per -DACT_* flag.
 set -e
 
@@ -8,10 +8,10 @@ cd "$(dirname "$0")"
 NVCC=${NVCC:-nvcc}
 NVCCFLAGS=${NVCCFLAGS:--O2 -std=c++17}
 BINDIR=build/bin
-SOL=../solutions
+SOL=../solutions-cuda
 mkdir -p "$BINDIR"
 
-# --- activations: one binary per -DACT_* flag, linking solutions/<act>.cu ----
+# --- activations: one binary per -DACT_* flag, linking solutions-cuda/<act>.cu ----
 declare -A ACT_FLAGS=(
     [relu]=-DACT_RELU
     [elu]=-DACT_ELU
@@ -29,7 +29,7 @@ for name in "${!ACT_FLAGS[@]}"; do
     $NVCC $NVCCFLAGS ${ACT_FLAGS[$name]} -o "$BINDIR/test-$name.exe" test-activation.cu "$SOL/$name.cu"
 done
 
-# --- reductions + standalone kernels: link solutions/<kernel>.cu -------------
+# --- reductions + standalone kernels: link solutions-cuda/<kernel>.cu -------------
 for kernel in vector-addition matrix-vector conv-1d \
               rms-norm l1-norm l2-norm max-normalize mean-subtract log-softmax softmax; do
     echo "  build test-$kernel.exe"

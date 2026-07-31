@@ -5,8 +5,9 @@ CUDA kernel implementations with performance-measuring harnesses. Each harness r
 ## Repository Layout
 
 ```
-tensara-harnesses/             # One backend-agnostic .cu harness per kernel problem
-solutions/                     # Per kernel: <k>.cu (CUDA), <k>.cpp + <k>.metal (Metal)
+kernel-harnesses/              # One backend-agnostic .cu harness per kernel problem
+solutions-cuda/                # Per kernel: <k>.cu (CUDA solution)
+solutions-metal/               # Per kernel: <k>.cpp + <k>.metal (Metal wrapper + shader)
 kernel-implementation/         # Shared: harness.cuh (+ detail/ backends), reduction.cuh, activation.cuh
 tests/                         # Correctness tests (CPU reference vs. GPU)
 Makefile                       # CUDA build system
@@ -32,33 +33,33 @@ BENCHMARK(solution(d_a, d_b, d_c, m, n, k));
 ./build_all.sh
 ```
 Implemented kernels link their in-repo code; every not-yet-implemented kernel
-links a stub from `solutions/`, so it compiles and runs (producing zeroed
+links a stub from `solutions-cuda/`, so it compiles and runs (producing zeroed
 output) until you fill it in.
 
 **Build one harness:**
 ```bash
-make build/bin/matrix-multiplication.exe        # auto-links solutions/matrix-multiplication.cu
+make build/bin/matrix-multiplication.exe        # auto-links solutions-cuda/matrix-multiplication.cu
 make build/bin/matrix-multiplication.exe SOLUTION=my-solution.cu   # or point at your own file
 ```
 
 ### Filling in a kernel
 
-**Every** kernel — implemented or not — lives at `solutions/<name>.cu` with the
+**Every** kernel — implemented or not — lives at `solutions-cuda/<name>.cu` with the
 correct `solution()` signature (kept in sync with the harness). Unimplemented
 ones ship as a stub with an empty body. To implement (or change) a kernel, edit
 its solution and rebuild:
 
 ```bash
-$EDITOR solutions/matrix-multiplication.cu   # fill in / edit the body
+$EDITOR solutions-cuda/matrix-multiplication.cu   # fill in / edit the body
 make build/bin/matrix-multiplication.exe
 ./build/bin/matrix-multiplication.exe
 ```
 
-The harness and the test both link `solutions/<name>.cu` automatically — no
+The harness and the test both link `solutions-cuda/<name>.cu` automatically — no
 harness or test edits needed. Shared templates that several solutions build on
 (`reduction.cuh` for the norm/softmax family, `activation.cuh` for the pointwise
 activations) live in `kernel-implementation/`; a solution pulls one in with a
-short `#include`, e.g. `solutions/rms-norm.cu` defines its macros and includes
+short `#include`, e.g. `solutions-cuda/rms-norm.cu` defines its macros and includes
 `../kernel-implementation/reduction.cuh`.
 
 ## Running
@@ -94,10 +95,10 @@ dependency). It selects a backend at compile time — `__CUDACC__` → CUDA,
 **The harness is backend-agnostic** — it just calls `solution(a, b, c, n)` and
 contains no Metal code, no `#if`. On Metal, `harness::Buffer<T>` hands
 `solution` the shared-memory pointer (like the CUDA device pointer), so the call
-site is identical. Each kernel ships three files in `solutions/`:
-- `<kernel>.cu` — CUDA `solution()` (a kernel launch).
-- `<kernel>.metal` — Metal shader whose kernel function is named `solution`.
-- `<kernel>.cpp` — Metal `solution()` wrapper: compiles the shader (`pipeline`),
+site is identical. Each kernel ships files across two directories:
+- `solutions-cuda/<kernel>.cu` — CUDA `solution()` (a kernel launch).
+- `solutions-metal/<kernel>.metal` — Metal shader whose kernel function is named `solution`.
+- `solutions-metal/<kernel>.cpp` — Metal `solution()` wrapper: compiles the shader (`pipeline`),
   recovers each `MTL::Buffer` from its pointer (`harness::buf`), and dispatches.
 
 The CUDA build links `<kernel>.cu`; the Metal build links `<kernel>.cpp` — never
@@ -113,7 +114,7 @@ HARNESS_SHADER_DIR=build/metal ./build/metal/relu          # shaders load from t
 The 22 implemented kernels (activations, vector-addition, matrix-vector,
 conv-1d, the reductions, softmax, avg-pool-1d, grayscale) have real MSL shaders +
 wrappers; the rest are stubs (`// TODO: implement`) to fill in, mirroring the
-CUDA `solutions/` stubs. Metal is built/validated on macOS — this repo's CI
+CUDA `solutions-cuda/` stubs. Metal is built/validated on macOS — this repo's CI
 target is CUDA — but the Metal-side C++ (`harness_metal.cuh` + all 86
 harness+wrapper pairs) is compile+link-checked.
 
@@ -126,7 +127,7 @@ intrinsics, tight for exact ones). A test prints `PASS`/`FAIL` and exits
 nonzero on failure. `tests/test_utils.cuh` holds the shared device-buffer and
 `compare`/`report` helpers.
 
-Every test links `solutions/<kernel>.cu` — the same file the harness uses — so a
+Every test links `solutions-cuda/<kernel>.cu` — the same file the harness uses — so a
 test runs your real code, whatever's in that file. Just run:
 
 ```bash
@@ -134,10 +135,10 @@ test runs your real code, whatever's in that file. Just run:
 ```
 
 It builds and runs one test per kernel — 74 in all — plus lists the 12 uncovered
-kernels, reconciling to **every** kernel in `tensara-harnesses/` (currently 86):
+kernels, reconciling to **every** kernel in `kernel-harnesses/` (currently 86):
 
 ```
-=== tests (each links solutions/<kernel>.cu) ===
+=== tests (each links solutions-cuda/<kernel>.cu) ===
   PASS  avg-pool-1d
   FAIL  matrix-multiplication (stub)
   ...
@@ -191,7 +192,7 @@ these can be added.
 To add a test: copy the closest `tests/test-<kernel>.cu`, declare
 `extern "C" solution(...)`, write the CPU reference, and add the kernel to
 `SPEC_TESTS` in `tests/Makefile` and the `TESTS` map in `tests/run_tests.sh`. The
-`tests/Makefile` pattern rule links `solutions/<kernel>.cu` automatically.
+`tests/Makefile` pattern rule links `solutions-cuda/<kernel>.cu` automatically.
 
 ## Adding a New Kernel
 
@@ -205,7 +206,7 @@ Harnesses are built from the helpers in `kernel-implementation/harness.cuh`:
   - implicitly converts to the device pointer, so pass it straight to `solution()`.
 - `BENCHMARK(solution(...))` — warmup + timed loop + average time.
 
-1. Create `tensara-harnesses/my-kernel.cu`. Use an existing harness as a
+1. Create `kernel-harnesses/my-kernel.cu`. Use an existing harness as a
    template (e.g. `matrix-multiplication.cu`):
    ```c++
    #include "../kernel-implementation/harness.cuh"
@@ -245,7 +246,7 @@ each row to a scalar, finalizes it, then rewrites each element as a function of
 | `FINALIZE(ACC, D)` | finalize the reduced scalar (`D` = row length) | required |
 | `WRITE_OP(X, ACC)` | per-element output transform | required |
 
-Seven kernels are built on it (`solutions/{rms-norm,l1-norm,l2-norm,max-normalize,mean-subtract,log-softmax,softmax}.cu`):
+Seven kernels are built on it (`solutions-cuda/{rms-norm,l1-norm,l2-norm,max-normalize,mean-subtract,log-softmax,softmax}.cu`):
 
 | Kernel | `MAP_OP` | `COMBINE` | `FINALIZE` | `WRITE_OP` |
 |---|---|---|---|---|

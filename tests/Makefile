@@ -5,12 +5,12 @@ OBJDIR    := build/obj
 SOLUTION  ?=
 
 # Solution linked into a spec-test binary: an explicit SOLUTION= if given, else
-# the fill-in stub solutions/<kernel>.cu, with <kernel> derived from the target
+# the fill-in stub solutions-cuda/<kernel>.cu, with <kernel> derived from the target
 # name (test-<kernel>.exe). Empty when neither exists.
-sol = $(if $(SOLUTION),$(SOLUTION),$(wildcard ../solutions/$(patsubst test-%,%,$(notdir $(basename $@))).cu))
+sol = $(if $(SOLUTION),$(SOLUTION),$(wildcard ../solutions-cuda/$(patsubst test-%,%,$(notdir $(basename $@))).cu))
 
 # Every spec-test binary (kernels whose harness builds against an external
-# solution). `make spec` builds them all against the solutions/ stubs.
+# solution). `make spec` builds them all against the solutions-cuda/ stubs.
 SPEC_TESTS := \
   test-matrix-multiplication test-square-matmul test-matmul-3d test-matmul-4d \
   test-matrix-scalar test-matrix-power test-diagonal-matmul test-symmetric-matmul \
@@ -89,7 +89,7 @@ $(BINDIR)/test-max-pool-3d.exe: max-pool.cu FORCE | $(BINDIR)
 	$(NVCC) $(NVCCFLAGS) -DPOOL_DIM=3 -o $@ $< $(sol)
 
 # Activation tests: one source (test-activation.cu) per -DACT_* flag, each linked
-# against its solutions/<activation>.cu (via $(sol), derived from the target).
+# against its solutions-cuda/<activation>.cu (via $(sol), derived from the target).
 $(BINDIR)/test-relu.exe:         test-activation.cu FORCE | $(BINDIR)
 	$(NVCC) $(NVCCFLAGS) -DACT_RELU        -o $@ $< $(sol)
 $(BINDIR)/test-elu.exe:          test-activation.cu FORCE | $(BINDIR)
@@ -124,7 +124,7 @@ $(BINDIR) $(OBJDIR):
 .PHONY: FORCE
 FORCE:
 
-# Tests for the kernels implemented in solutions/ (activations, reductions, ...).
+# Tests for the kernels implemented in solutions-cuda/ (activations, reductions, ...).
 REF_TESTS := \
   test-relu test-elu test-leaky-relu test-swish test-gelu test-selu \
   test-sigmoid test-soft-plus test-tanh test-hard-sigmoid \
@@ -132,7 +132,7 @@ REF_TESTS := \
   test-rms-norm test-l1-norm test-l2-norm test-max-normalize test-mean-subtract \
   test-log-softmax test-softmax
 
-# Build every spec test, each linked against its solutions/<kernel>.cu stub
+# Build every spec test, each linked against its solutions-cuda/<kernel>.cu stub
 # (or your own file via SOLUTION=). Does not implement anything.
 .PHONY: spec
 spec: $(SPEC_TESTS:%=$(BINDIR)/%.exe)

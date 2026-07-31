@@ -1,16 +1,16 @@
 #!/bin/bash
 # Build and run every correctness test, then print a full accounting of all 86
-# kernels in tensara-harnesses/. Each test links its solutions/<kernel>.cu (your
+# kernels in kernel-harnesses/. Each test links its solutions-cuda/<kernel>.cu (your
 # code, or a fill-in stub), so a test exercises whatever is in that file.
 #
 # For each kernel:
-#   unimplemented -> solutions/<kernel>.cu still contains "// TODO: implement";
+#   unimplemented -> solutions-cuda/<kernel>.cu still contains "// TODO: implement";
 #                    skipped (not built or run), just listed.
 #   implemented   -> built and RUN. PASS, or FAIL (regression) if the output is wrong.
 #   uncovered     -> no test yet (needs an exact numeric spec not in the repo). 12.
 #
 # Usage:
-#   ./run_tests.sh                       # test everything against solutions/
+#   ./run_tests.sh                       # test everything against solutions-cuda/
 #   SOLUTIONS_DIR=/path ./run_tests.sh   # test against a different set of solutions
 #
 # Exit code = regressions + build errors (real problems). Unimplemented kernels
@@ -23,7 +23,7 @@ BINDIR=build/bin
 mkdir -p "$BINDIR"
 
 # Directory of solution files each test links against (defaults to the repo's).
-SOLUTIONS_DIR=${SOLUTIONS_DIR-../solutions}
+SOLUTIONS_DIR=${SOLUTIONS_DIR-../solutions-cuda}
 
 # ---- every tested kernel -> "test-source|flags" ----------------------------
 # Activations share one source selected by -DACT_*; dim/arg/loss/trig/pool tests
@@ -114,7 +114,7 @@ UNCOVERED=(mxfp4-quantize mxfp4-dequantize mxfp4-gemm
 pass=0; regression=0; build_fail=0; unimpl=0
 regressions=(); build_fails=()
 
-echo "=== tests (each links solutions/<kernel>.cu) ==="
+echo "=== tests (each links solutions-cuda/<kernel>.cu) ==="
 for k in $(printf '%s\n' "${!TESTS[@]}" | sort); do
     entry="${TESTS[$k]}"; src="${entry%%|*}"; flags="${entry#*|}"
     sol="$SOLUTIONS_DIR/$k.cu"

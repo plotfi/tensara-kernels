@@ -3,7 +3,7 @@
 #
 # Mirror of run_tests.sh, but compiles test sources as C++ with a fake
 # cuda_runtime.h (tests/metal/cuda_runtime.h) backed by Metal shared memory.
-# Each test links against solutions/<kernel>.cpp (the Metal wrapper).
+# Each test links against solutions-metal/<kernel>.cpp (the Metal wrapper).
 #
 # Usage:
 #   METAL_CPP=/path/to/metal-cpp ./tests/run_tests_metal.sh           # all
@@ -130,15 +130,15 @@ fi
 pass=0; regression=0; build_fail=0; unimpl=0
 regressions=(); build_fails=()
 
-echo "=== Metal tests (each links solutions/<kernel>.cpp) ==="
+echo "=== Metal tests (each links solutions-metal/<kernel>.cpp) ==="
 for k in ${(ok)RUN_TESTS}; do
     entry="${RUN_TESTS[$k]}"
     src="${entry%%|*}"
     flags="${entry#*|}"
-    sol="solutions/$k.cpp"
+    sol="solutions-metal/$k.cpp"
 
     # Skip kernels whose Metal shader is a stub (empty or contains TODO marker).
-    if [[ ! -s "solutions/$k.metal" ]] || grep -q "// TODO: implement" "solutions/$k.metal" 2>/dev/null; then
+    if [[ ! -s "solutions-metal/$k.metal" ]] || grep -q "// TODO: implement" "solutions-metal/$k.metal" 2>/dev/null; then
         echo "  TODO  $k (stub shader)"; unimpl=$((unimpl+1)); continue
     fi
 

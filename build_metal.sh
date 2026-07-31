@@ -5,7 +5,7 @@
 #   METAL_CPP=/path/to/metal-cpp ./build_metal.sh relu ...   # specific kernels
 #
 # Each binary links the (backend-agnostic) harness .cu with its Metal solution
-# wrapper solutions/<kernel>.cpp; the shader solutions/<kernel>.metal is copied
+# wrapper solutions-metal/<kernel>.cpp; the shader solutions-metal/<kernel>.metal is copied
 # next to the binary and loaded at runtime. Run with the shader dir on the env:
 #   TENSOR_SHADER_DIR=build/metal ./build/metal/relu
 set -e
@@ -25,20 +25,20 @@ LDFLAGS="-framework Metal -framework Foundation"
 
 kernels=("$@")
 if [ ${#kernels[@]} -eq 0 ]; then
-    for h in tensara-harnesses/*.cu; do kernels+=("$(basename "$h" .cu)"); done
+    for h in kernel-harnesses/*.cu; do kernels+=("$(basename "$h" .cu)"); done
 fi
 
 for k in "${kernels[@]}"; do
-    if [ ! -f "solutions/$k.cpp" ] || [ ! -f "solutions/$k.metal" ]; then
-        echo "skip $k (missing solutions/$k.cpp or .metal)"; continue
+    if [ ! -f "solutions-metal/$k.cpp" ] || [ ! -f "solutions-metal/$k.metal" ]; then
+        echo "skip $k (missing solutions-metal/$k.cpp or .metal)"; continue
     fi
     echo "  clang++ $k"
     # The wrapper is the one TU that carries the metal-cpp implementation.
-    $CXX $CXXFLAGS -c "tensara-harnesses/$k.cu" -o "$OUT/$k.tensor.o"
-    $CXX $CXXFLAGS -DTENSOR_METAL_IMPL -c "solutions/$k.cpp" -o "$OUT/$k.wrapper.o"
+    $CXX $CXXFLAGS -c "kernel-harnesses/$k.cu" -o "$OUT/$k.tensor.o"
+    $CXX $CXXFLAGS -DTENSOR_METAL_IMPL -c "solutions-metal/$k.cpp" -o "$OUT/$k.wrapper.o"
     $CXX "$OUT/$k.tensor.o" "$OUT/$k.wrapper.o" -o "$OUT/$k" $LDFLAGS
     rm -f "$OUT/$k.tensor.o" "$OUT/$k.wrapper.o"
-    cp "solutions/$k.metal" "$OUT/"
+    cp "solutions-metal/$k.metal" "$OUT/"
 done
 
 echo "Built Metal harnesses into $OUT/"
