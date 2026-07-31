@@ -4,19 +4,18 @@
 //
 // Every harness does the same thing: seed RNG, allocate GPU buffers, fill
 // inputs, run the kernel under a timed loop, then preview the outputs. The
-// device-specific allocation is hidden behind harness::Buffer<T> so one harness
-// can target either CUDA or Metal. (Design borrowed from micro-tensor, folded
-// in here so the harness has no external dependency.)
+// device-specific allocation is hidden behind tensor::Buffer<T> so one harness
+// can target either CUDA or Metal.
 //
 // Backend selection (compile-time):
-//   * Define HARNESS_CUDA to force the CUDA backend, or
-//   * Define HARNESS_METAL to force the Metal backend (via metal-cpp), or
+//   * Define TENSOR_CUDA to force the CUDA backend, or
+//   * Define TENSOR_METAL to force the Metal backend (via metal-cpp), or
 //   * Otherwise auto-detect: __CUDACC__ -> CUDA, __APPLE__ -> Metal,
 //     defaulting to CUDA.
 //
 // Common API on both backends:
-//   harness::begin(name) / harness::end()
-//   harness::Buffer<T>(n)   -- alloc + zero; .fill_random() .set({...}) .fill(v)
+//   tensor::begin(name) / tensor::end()
+//   tensor::Buffer<T>(n)   -- alloc + zero; .fill_random() .set({...}) .fill(v)
 //                              .preview(label) .data() .size()
 //   BENCHMARK(...)          -- warm up, time, print avg per launch
 //
@@ -24,26 +23,26 @@
 //   CUDA  -- Buffer converts to T* (device pointer); call a kernel launch:
 //              BENCHMARK(solution(a, b, c, n));
 //   Metal -- Buffer converts to MTL::Buffer*; dispatch a compiled shader:
-//              auto pso = harness::pipeline("<kernel>");
-//              BENCHMARK(harness::dispatch(pso, {a, b, c}, { harness::arg(n) }, grid));
-//   Harnesses select between the two with #if HARNESS_METAL.
+//              auto pso = tensor::pipeline("<kernel>");
+//              BENCHMARK(tensor::dispatch(pso, {a, b, c}, { tensor::arg(n) }, grid));
+//   Harnesses select between the two with #if TENSOR_METAL.
 
-#if !defined(HARNESS_CUDA) && !defined(HARNESS_METAL)
+#if !defined(TENSOR_CUDA) && !defined(TENSOR_METAL)
 #  if defined(__CUDACC__)
-#    define HARNESS_CUDA 1
+#    define TENSOR_CUDA 1
 #  elif defined(__APPLE__)
-#    define HARNESS_METAL 1
+#    define TENSOR_METAL 1
 #  else
-#    define HARNESS_CUDA 1   // tensara is CUDA-first; default to it
+#    define TENSOR_CUDA 1   // tensara is CUDA-first; default to it
 #  endif
 #endif
 
-#if defined(HARNESS_METAL)
-#  include "detail/harness_metal.cuh"
+#if defined(TENSOR_METAL)
+#  include "detail/tensor_metal.cuh"
 #else
-#  include "detail/harness_cuda.cuh"
+#  include "detail/tensor_cuda.cuh"
 #endif
 
 // Benchmark a call expression, e.g. BENCHMARK(solution(a, b, c, m, n, k));
 // The expression is captured by reference and replayed each iteration.
-#define BENCHMARK(...) ::harness::benchmark([&]() { __VA_ARGS__; })
+#define BENCHMARK(...) ::tensor::benchmark([&]() { __VA_ARGS__; })

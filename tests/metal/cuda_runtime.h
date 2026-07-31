@@ -4,12 +4,12 @@
 //
 // test_utils.cuh does #include <cuda_runtime.h> and uses cudaMalloc,
 // cudaMemcpy, cudaFree, etc. This file provides those symbols backed by Metal
-// shared-storage buffers, registered in harness::registry() so that solution()
-// wrappers can recover the MTL::Buffer via harness::buf(ptr).
+// shared-storage buffers, registered in tensor::registry() so that solution()
+// wrappers can recover the MTL::Buffer via tensor::buf(ptr).
 //
 // Only the APIs actually used by test_utils.cuh are stubbed here.
 
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 #include <cstring>
 
 enum cudaError_t { cudaSuccess = 0 };
@@ -21,18 +21,18 @@ inline cudaError_t cudaDeviceSynchronize() { return cudaSuccess; }
 
 template <typename T>
 inline cudaError_t cudaMalloc(T** ptr, size_t size) {
-    auto* buf = harness::device()->newBuffer(size, MTL::ResourceStorageModeShared);
+    auto* buf = tensor::device()->newBuffer(size, MTL::ResourceStorageModeShared);
     memset(buf->contents(), 0, size);
     *ptr = static_cast<T*>(buf->contents());
-    harness::registry()[buf->contents()] = buf;
+    tensor::registry()[buf->contents()] = buf;
     return cudaSuccess;
 }
 
 inline cudaError_t cudaFree(void* ptr) {
-    auto it = harness::registry().find(ptr);
-    if (it != harness::registry().end()) {
+    auto it = tensor::registry().find(ptr);
+    if (it != tensor::registry().end()) {
         it->second->release();
-        harness::registry().erase(it);
+        tensor::registry().erase(it);
     }
     return cudaSuccess;
 }

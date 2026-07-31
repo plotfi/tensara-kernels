@@ -1,16 +1,16 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* rgb_image, float* grayscale_output, size_t height, size_t width, size_t channels);
 
 int main() {
-    harness::begin("grayscale");
+    tensor::begin("grayscale");
 
     size_t height = 64;
     size_t width = 64;
     size_t channels = 3;
 
-    harness::Buffer<float> rgb_image(height * width * channels);
-    harness::Buffer<float> grayscale_output(height * width);
+    tensor::Buffer<float> rgb_image(height * width * channels);
+    tensor::Buffer<float> grayscale_output(height * width);
 
     rgb_image.fill_random();
 
@@ -18,5 +18,5 @@ int main() {
 
     grayscale_output.preview("grayscale_output");
 
-    harness::end();
+    tensor::end();
 }

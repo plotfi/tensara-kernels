@@ -7,13 +7,13 @@
 // pointer so a Buffer can be handed straight to a kernel launch / solution().
 // This is the original harness.cuh Buffer, unchanged.
 
-#include "harness_common.cuh"
+#include "tensor_common.cuh"
 
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 #include <cuda_fp8.h>
 
-namespace harness {
+namespace tensor {
 
 // ---- CUDA-only element overloads (half / fp8) ---------------------------
 inline void fill_random(half* p, size_t n) {
@@ -51,7 +51,7 @@ struct Buffer {
 
     // Fill host with random data (by element type) and upload to device.
     Buffer& fill_random() {
-        ::harness::fill_random(host, count);
+        ::tensor::fill_random(host, count);
         cudaMemcpy(dev, host, count * sizeof(T), cudaMemcpyHostToDevice);
         return *this;
     }
@@ -77,7 +77,7 @@ struct Buffer {
         cudaMemcpy(host, dev, count * sizeof(T), cudaMemcpyDeviceToHost);
         printf("Output %s (first 10): ", label);
         for (size_t i = 0; i < k && i < count; i++)
-            ::harness::preview_value(host[i]);
+            ::tensor::preview_value(host[i]);
         printf("\n");
     }
 
@@ -120,4 +120,4 @@ inline void benchmark(Fn&& launch, int warmup = 3, int iters = 100) {
     printf("Avg kernel time: %.4f ms (over %d iters)\n", ms / iters, iters);
 }
 
-} // namespace harness
+} // namespace tensor

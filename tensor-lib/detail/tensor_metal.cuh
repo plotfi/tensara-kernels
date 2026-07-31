@@ -20,9 +20,9 @@
 // gets declarations only. Defining the macros here — guarded — keeps this
 // boilerplate out of both the harnesses and the wrappers.
 
-#include "harness_common.cuh"
+#include "tensor_common.cuh"
 
-#if defined(HARNESS_METAL_IMPL)
+#if defined(TENSOR_METAL_IMPL)
 #  define NS_PRIVATE_IMPLEMENTATION
 #  define MTL_PRIVATE_IMPLEMENTATION
 #endif
@@ -46,7 +46,7 @@
 using half = uint16_t;
 struct __nv_fp8_e4m3 { uint8_t bits; };
 
-namespace harness {
+namespace tensor {
 
 inline void fill_random(half* p, size_t n) {
     for (size_t i = 0; i < n; i++) p[i] = static_cast<half>(rand() & 0xffff);
@@ -61,7 +61,7 @@ inline void preview_value(__nv_fp8_e4m3 v) { printf("%u ", static_cast<unsigned>
 inline MTL::Device* device() {
     static MTL::Device* dev = MTL::CreateSystemDefaultDevice();
     if (!dev) {
-        fprintf(stderr, "harness: Metal is not supported on this device.\n");
+        fprintf(stderr, "tensor: Metal is not supported on this device.\n");
         std::exit(1);
     }
     return dev;
@@ -85,7 +85,7 @@ inline std::map<const void*, MTL::Buffer*>& registry() {
 inline MTL::Buffer* buf(const void* p) {
     auto it = registry().find(p);
     if (it == registry().end()) {
-        fprintf(stderr, "harness: buf() got a pointer not owned by any Buffer\n");
+        fprintf(stderr, "tensor: buf() got a pointer not owned by any Buffer\n");
         std::exit(1);
     }
     return it->second;
@@ -113,7 +113,7 @@ struct Buffer {
     // Host-accessible pointer. With shared storage this IS the device memory.
     T* data() { return static_cast<T*>(buf->contents()); }
 
-    Buffer& fill_random() { ::harness::fill_random(data(), count); return *this; }
+    Buffer& fill_random() { ::tensor::fill_random(data(), count); return *this; }
 
     Buffer& set(std::initializer_list<T> values) {
         T* p = data(); size_t i = 0;
@@ -131,7 +131,7 @@ struct Buffer {
         T* p = data();
         printf("Output %s (first 10): ", label);
         for (size_t i = 0; i < k && i < count; i++)
-            ::harness::preview_value(p[i]);
+            ::tensor::preview_value(p[i]);
         printf("\n");
     }
 
@@ -141,11 +141,11 @@ struct Buffer {
 
 // ---- shader compilation + pipeline cache --------------------------------
 
-// Directory to look for <kernel>.metal files in. Taken from $HARNESS_SHADER_DIR
+// Directory to look for <kernel>.metal files in. Taken from $TENSOR_SHADER_DIR
 // if set, else the working directory. (The repo's shaders live in solutions/.)
 inline std::string& shader_dir() {
     static std::string d = []{
-        const char* e = getenv("HARNESS_SHADER_DIR");
+        const char* e = getenv("TENSOR_SHADER_DIR");
         return e ? std::string(e) : std::string(".");
     }();
     return d;
@@ -160,7 +160,7 @@ inline void inline_metal_includes(const std::string& path, const std::string& di
                                   std::set<std::string>& seen, std::string& out) {
     std::ifstream f(path);
     if (!f.is_open()) {
-        fprintf(stderr, "harness: cannot open shader %s\n", path.c_str());
+        fprintf(stderr, "tensor: cannot open shader %s\n", path.c_str());
         std::exit(1);
     }
     std::string line;
@@ -189,20 +189,20 @@ inline MTL::ComputePipelineState* compile_pipeline(const std::string& metal_path
     NS::String* s = NS::String::string(src.c_str(), NS::UTF8StringEncoding);
     MTL::Library* lib = device()->newLibrary(s, nullptr, &err);
     if (!lib) {
-        fprintf(stderr, "harness: shader compile failed (%s): %s\n", metal_path.c_str(),
+        fprintf(stderr, "tensor: shader compile failed (%s): %s\n", metal_path.c_str(),
                 err->localizedDescription()->utf8String());
         std::exit(1);
     }
     NS::String* fn = NS::String::string(fn_name.c_str(), NS::UTF8StringEncoding);
     MTL::Function* func = lib->newFunction(fn);
     if (!func) {
-        fprintf(stderr, "harness: kernel '%s' not found in %s\n", fn_name.c_str(), metal_path.c_str());
+        fprintf(stderr, "tensor: kernel '%s' not found in %s\n", fn_name.c_str(), metal_path.c_str());
         std::exit(1);
     }
     MTL::ComputePipelineState* pso = device()->newComputePipelineState(func, &err);
     func->release(); lib->release();
     if (!pso) {
-        fprintf(stderr, "harness: pipeline build failed: %s\n",
+        fprintf(stderr, "tensor: pipeline build failed: %s\n",
                 err->localizedDescription()->utf8String());
         std::exit(1);
     }
@@ -285,4 +285,4 @@ inline void benchmark(Fn&& launch, int warmup = 3, int iters = 100) {
     printf("Avg kernel time: %.4f ms (over %d iters)\n", ms / iters, iters);
 }
 
-} // namespace harness
+} // namespace tensor

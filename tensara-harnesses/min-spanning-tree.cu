@@ -1,14 +1,14 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* A, float* min_weight, size_t n);
 
 int main() {
-    harness::begin("min-spanning-tree");
+    tensor::begin("min-spanning-tree");
 
     size_t n = 64;
 
-    harness::Buffer<float> A(n * n);
-    harness::Buffer<float> min_weight(1);
+    tensor::Buffer<float> A(n * n);
+    tensor::Buffer<float> min_weight(1);
 
     A.fill_random();
 
@@ -16,5 +16,5 @@ int main() {
 
     min_weight.preview("min_weight");
 
-    harness::end();
+    tensor::end();
 }

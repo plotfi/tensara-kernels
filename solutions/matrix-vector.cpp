@@ -1,9 +1,9 @@
 // Metal solution wrapper for "matrix-vector".
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* input_a, const float* input_b, float* output_c, size_t m, size_t k) {
-    auto pso = harness::pipeline("matrix-vector");
+    auto pso = tensor::pipeline("matrix-vector");
     uint32_t M = static_cast<uint32_t>(m), K = static_cast<uint32_t>(k);
-    harness::dispatch(pso, { harness::buf(input_a), harness::buf(input_b), harness::buf(output_c) },
-                      { harness::arg(M), harness::arg(K) }, m);
+    tensor::dispatch(pso, { tensor::buf(input_a), tensor::buf(input_b), tensor::buf(output_c) },
+                      { tensor::arg(M), tensor::arg(K) }, m);
 }

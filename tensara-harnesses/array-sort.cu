@@ -1,14 +1,14 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const int* a, int* b, size_t n);
 
 int main() {
-    harness::begin("array-sort");
+    tensor::begin("array-sort");
 
     size_t n = 1024;
 
-    harness::Buffer<int> a(n);
-    harness::Buffer<int> b(n);
+    tensor::Buffer<int> a(n);
+    tensor::Buffer<int> b(n);
 
     a.fill_random();
 
@@ -16,5 +16,5 @@ int main() {
 
     b.preview("b");
 
-    harness::end();
+    tensor::end();
 }

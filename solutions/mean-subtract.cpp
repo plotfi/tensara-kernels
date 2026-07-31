@@ -1,9 +1,9 @@
 // Metal solution wrapper for "mean-subtract".
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* X, float* Y, size_t B, size_t D) {
-    auto pso = harness::pipeline("mean-subtract");
+    auto pso = tensor::pipeline("mean-subtract");
     uint32_t Dv = static_cast<uint32_t>(D);
     const size_t tpg = 256;
-    harness::dispatch(pso, { harness::buf(X), harness::buf(Y) }, { harness::arg(Dv) }, B * tpg, tpg);
+    tensor::dispatch(pso, { tensor::buf(X), tensor::buf(Y) }, { tensor::arg(Dv) }, B * tpg, tpg);
 }

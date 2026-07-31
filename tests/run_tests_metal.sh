@@ -22,7 +22,7 @@ mkdir -p "$BINDIR"
 
 # -I tests/metal comes first so the fake cuda_runtime.h is found before any
 # system CUDA (there is none on macOS, but this makes intent explicit).
-CXXFLAGS=(-std=c++17 -O2 -x c++ -DHARNESS_METAL -I tests/metal -I kernel-implementation -I"$METAL_CPP")
+CXXFLAGS=(-std=c++17 -O2 -x c++ -DTENSOR_METAL -I tests/metal -I tensor-lib -I kernel-implementation -I"$METAL_CPP")
 LDFLAGS=(-framework Metal -framework Foundation)
 
 if [[ ! -d "$SHADER_DIR" ]] || [[ -z "$(ls "$SHADER_DIR"/*.metal 2>/dev/null)" ]]; then
@@ -146,18 +146,18 @@ for k in ${(ok)RUN_TESTS}; do
     if ! $CXX "${CXXFLAGS[@]}" ${=flags} -c "tests/$src" -o "$BINDIR/test-$k.test.o" 2>&1; then
         echo "  BUILD-FAIL  $k (test TU)"; build_fail=$((build_fail+1)); build_fails+=("$k"); continue
     fi
-    if ! $CXX "${CXXFLAGS[@]}" -DHARNESS_METAL_IMPL -c "$sol" -o "$BINDIR/test-$k.sol.o" 2>&1; then
+    if ! $CXX "${CXXFLAGS[@]}" -DTENSOR_METAL_IMPL -c "$sol" -o "$BINDIR/test-$k.sol.o" 2>&1; then
         echo "  BUILD-FAIL  $k (solution TU)"; build_fail=$((build_fail+1)); build_fails+=("$k"); continue
     fi
     if ! $CXX "$BINDIR/test-$k.test.o" "$BINDIR/test-$k.sol.o" -o "$BINDIR/test-$k" "${LDFLAGS[@]}" 2>&1; then
         echo "  BUILD-FAIL  $k (link)"; build_fail=$((build_fail+1)); build_fails+=("$k"); continue
     fi
 
-    if HARNESS_SHADER_DIR="$SHADER_DIR" "$BINDIR/test-$k" >/dev/null 2>&1; then
+    if TENSOR_SHADER_DIR="$SHADER_DIR" "$BINDIR/test-$k" >/dev/null 2>&1; then
         echo "  PASS  $k"; pass=$((pass+1))
     else
         echo "  FAIL  $k (regression)"
-        HARNESS_SHADER_DIR="$SHADER_DIR" "$BINDIR/test-$k" 2>&1 | sed 's/^/    /'
+        TENSOR_SHADER_DIR="$SHADER_DIR" "$BINDIR/test-$k" 2>&1 | sed 's/^/    /'
         regression=$((regression+1)); regressions+=("$k")
     fi
     rm -f "$BINDIR/test-$k.test.o" "$BINDIR/test-$k.sol.o"

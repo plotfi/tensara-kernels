@@ -1,16 +1,16 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* predictions, const float* targets, float* output, const size_t* shape, size_t ndim);
 
 int main() {
-    harness::begin("mse-loss");
+    tensor::begin("mse-loss");
 
     size_t ndim = 2;
 
-    harness::Buffer<float> predictions(64 * 64);
-    harness::Buffer<float> targets(64 * 64);
-    harness::Buffer<float> output(1);
-    harness::Buffer<size_t> shape(ndim);
+    tensor::Buffer<float> predictions(64 * 64);
+    tensor::Buffer<float> targets(64 * 64);
+    tensor::Buffer<float> output(1);
+    tensor::Buffer<size_t> shape(ndim);
 
     predictions.fill_random();
     targets.fill_random();
@@ -20,5 +20,5 @@ int main() {
 
     output.preview("output");
 
-    harness::end();
+    tensor::end();
 }
