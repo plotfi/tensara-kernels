@@ -5,12 +5,13 @@ CUDA kernel implementations with performance-measuring harnesses. Each harness r
 ## Repository Layout
 
 ```
-tensara-harnesses/             # One .cu harness per kernel problem
-solutions/                     # One solution .cu per kernel (your code, or a fill-in stub)
-kernel-implementation/         # Shared templates only (harness.cuh, reduction.cuh, activation.cuh)
+tensara-harnesses/             # One backend-agnostic .cu harness per kernel problem
+solutions/                     # Per kernel: <k>.cu (CUDA), <k>.cpp + <k>.metal (Metal)
+kernel-implementation/         # Shared: harness.cuh (+ detail/ backends), reduction.cuh, activation.cuh
 tests/                         # Correctness tests (CPU reference vs. GPU)
-Makefile                       # Build system
-build_all.sh                   # Build every harness
+Makefile                       # CUDA build system
+build_all.sh                   # Build every harness + test (CUDA, parallel)
+build_metal.sh                 # Build every harness on Metal (macOS + metal-cpp)
 run_all.sh                     # Run every built binary
 ```
 
@@ -79,6 +80,42 @@ Avg kernel time: 0.0015 ms (over 100 iters)
 Output output (first 10): 0.000000 0.000000 0.381271 ...
 Done.
 ```
+
+## Cross-platform (CUDA / Metal)
+
+`kernel-implementation/harness.cuh` is a cross-platform tensor/harness library
+(design borrowed from `micro-tensor`, folded in so there's no external
+dependency). It selects a backend at compile time — `__CUDACC__` → CUDA,
+`__APPLE__` → Metal (via metal-cpp), overridable with `-DHARNESS_CUDA` /
+`-DHARNESS_METAL` — and hides device allocation behind `harness::Buffer<T>`
+(CUDA host+device pair, or a shared Metal `MTL::Buffer`). The backends live in
+`kernel-implementation/detail/harness_{common,cuda,metal}.cuh`.
+
+**The harness is backend-agnostic** — it just calls `solution(a, b, c, n)` and
+contains no Metal code, no `#if`. On Metal, `harness::Buffer<T>` hands
+`solution` the shared-memory pointer (like the CUDA device pointer), so the call
+site is identical. Each kernel ships three files in `solutions/`:
+- `<kernel>.cu` — CUDA `solution()` (a kernel launch).
+- `<kernel>.metal` — Metal shader whose kernel function is named `solution`.
+- `<kernel>.cpp` — Metal `solution()` wrapper: compiles the shader (`pipeline`),
+  recovers each `MTL::Buffer` from its pointer (`harness::buf`), and dispatches.
+
+The CUDA build links `<kernel>.cu`; the Metal build links `<kernel>.cpp` — never
+both — so `solution()` is defined once per binary and the harness is unchanged.
+
+**Build + run on Metal (macOS, needs metal-cpp headers):**
+```bash
+METAL_CPP=/path/to/metal-cpp ./build_metal.sh              # all kernels
+METAL_CPP=/path/to/metal-cpp ./build_metal.sh relu         # just one
+HARNESS_SHADER_DIR=build/metal ./build/metal/relu          # shaders load from this dir
+```
+
+The 22 implemented kernels (activations, vector-addition, matrix-vector,
+conv-1d, the reductions, softmax, avg-pool-1d, grayscale) have real MSL shaders +
+wrappers; the rest are stubs (`// TODO: implement`) to fill in, mirroring the
+CUDA `solutions/` stubs. Metal is built/validated on macOS — this repo's CI
+target is CUDA — but the Metal-side C++ (`harness_metal.cuh` + all 86
+harness+wrapper pairs) is compile+link-checked.
 
 ## Testing
 
