@@ -1,15 +1,15 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* input, size_t W, float* output, size_t N);
 
 int main() {
-    harness::begin("running-sum-1d");
+    tensor::begin("running-sum-1d");
 
     size_t W = 5;
     size_t N = 1024;
 
-    harness::Buffer<float> input(N);
-    harness::Buffer<float> output(N);
+    tensor::Buffer<float> input(N);
+    tensor::Buffer<float> output(N);
 
     input.fill_random();
 
@@ -17,5 +17,5 @@ int main() {
 
     output.preview("output");
 
-    harness::end();
+    tensor::end();
 }

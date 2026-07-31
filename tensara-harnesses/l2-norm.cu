@@ -1,15 +1,15 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* X, float* Y, size_t B, size_t D);
 
 int main() {
-    harness::begin("l2-norm");
+    tensor::begin("l2-norm");
 
     size_t B = 8;
     size_t D = 64;
 
-    harness::Buffer<float> X(B * D);
-    harness::Buffer<float> Y(B * D);
+    tensor::Buffer<float> X(B * D);
+    tensor::Buffer<float> Y(B * D);
 
     X.fill_random();
 
@@ -17,5 +17,5 @@ int main() {
 
     Y.preview("Y");
 
-    harness::end();
+    tensor::end();
 }

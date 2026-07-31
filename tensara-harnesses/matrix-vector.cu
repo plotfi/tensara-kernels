@@ -1,16 +1,16 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* input_a, const float* input_b, float* output_c, size_t m, size_t k);
 
 int main() {
-    harness::begin("matrix-vector");
+    tensor::begin("matrix-vector");
 
     size_t m = 64;
     size_t k = 64;
 
-    harness::Buffer<float> input_a(m * k);
-    harness::Buffer<float> input_b(k);
-    harness::Buffer<float> output_c(m);
+    tensor::Buffer<float> input_a(m * k);
+    tensor::Buffer<float> input_b(k);
+    tensor::Buffer<float> output_c(m);
 
     input_a.fill_random();
     input_b.fill_random();
@@ -19,5 +19,5 @@ int main() {
 
     output_c.preview("output_c");
 
-    harness::end();
+    tensor::end();
 }

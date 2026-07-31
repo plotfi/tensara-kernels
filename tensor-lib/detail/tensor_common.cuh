@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <initializer_list>
 
-namespace harness {
+namespace tensor {
 
 // Print the harness banner and seed the RNG (fixed seed for reproducibility).
 inline void begin(const char* name) {
@@ -60,4 +60,4 @@ inline void preview_value(uint8_t v)  { printf("%u ", static_cast<unsigned>(v));
 inline void preview_value(uint32_t v) { printf("%u ", v); }
 inline void preview_value(uint64_t v) { printf("%llu ", static_cast<unsigned long long>(v)); }
 
-} // namespace harness
+} // namespace tensor

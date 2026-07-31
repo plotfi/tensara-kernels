@@ -1,11 +1,11 @@
 // Metal solution wrapper for "selu" (unified activation kernel, 8 elems/thread).
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* input, float* output, size_t n, size_t m) {
-    auto pso = harness::pipeline("selu");
+    auto pso = tensor::pipeline("selu");
     uint32_t N = static_cast<uint32_t>(n * m);
     float alpha = 0.0f;
     size_t threads = (N + 7u) / 8u;
-    harness::dispatch(pso, { harness::buf(input), harness::buf(output) },
-                      { harness::arg(N), harness::arg(alpha) }, threads);
+    tensor::dispatch(pso, { tensor::buf(input), tensor::buf(output) },
+                      { tensor::arg(N), tensor::arg(alpha) }, threads);
 }

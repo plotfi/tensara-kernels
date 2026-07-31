@@ -1,19 +1,19 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const uint8_t* q_a, const uint8_t* scale_a, const uint8_t* q_b, const uint8_t* scale_b, float* c, size_t m, size_t n, size_t k);
 
 int main() {
-    harness::begin("mxfp4-gemm");
+    tensor::begin("mxfp4-gemm");
 
     size_t m = 64;
     size_t n = 64;
     size_t k = 64;
 
-    harness::Buffer<uint8_t> q_a(m * k / 2);
-    harness::Buffer<uint8_t> scale_a(m * (k / 32));
-    harness::Buffer<uint8_t> q_b(k * n / 2);
-    harness::Buffer<uint8_t> scale_b(k * (n / 32));
-    harness::Buffer<float> c(m * n);
+    tensor::Buffer<uint8_t> q_a(m * k / 2);
+    tensor::Buffer<uint8_t> scale_a(m * (k / 32));
+    tensor::Buffer<uint8_t> q_b(k * n / 2);
+    tensor::Buffer<uint8_t> scale_b(k * (n / 32));
+    tensor::Buffer<float> c(m * n);
 
     q_a.fill_random();
     scale_a.fill_random();
@@ -24,5 +24,5 @@ int main() {
 
     c.preview("c");
 
-    harness::end();
+    tensor::end();
 }
