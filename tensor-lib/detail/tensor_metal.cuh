@@ -8,14 +8,14 @@
 // pointer -- so a harness calls solution(a, b, c, n) identically on both.
 //
 // On Metal, solution() is not a kernel launch but a small wrapper (one per
-// kernel, in solutions/<kernel>.cpp) that compiles the shader and dispatches it.
+// kernel, in solutions-metal/<kernel>.cpp) that compiles the shader and dispatches it.
 // It recovers each MTL::Buffer from the T* it was handed via harness::buf(),
 // backed by a registry that Buffer populates on construction. That keeps the
 // harness backend-agnostic: no metal-cpp, no #if, no dispatch code.
 //
 // metal-cpp needs its implementation compiled in exactly one TU per binary (the
 // macros NS_PRIVATE_IMPLEMENTATION / MTL_PRIVATE_IMPLEMENTATION defined before
-// its headers). That TU is the per-kernel wrapper solutions/<kernel>.cpp, which
+// its headers). That TU is the per-kernel wrapper solutions-metal/<kernel>.cpp, which
 // build_metal.sh compiles with -DHARNESS_METAL_IMPL; every other TU (the harness)
 // gets declarations only. Defining the macros here — guarded — keeps this
 // boilerplate out of both the harnesses and the wrappers.
@@ -142,7 +142,7 @@ struct Buffer {
 // ---- shader compilation + pipeline cache --------------------------------
 
 // Directory to look for <kernel>.metal files in. Taken from $TENSOR_SHADER_DIR
-// if set, else the working directory. (The repo's shaders live in solutions/.)
+// if set, else the working directory. (The repo's shaders live in solutions-metal/.)
 inline std::string& shader_dir() {
     static std::string d = []{
         const char* e = getenv("TENSOR_SHADER_DIR");

@@ -1,9 +1,9 @@
 NVCC        := nvcc
 NVCCFLAGS   := -O2 -std=c++17
-HARNESS_DIR := tensara-harnesses
+HARNESS_DIR := kernel-harnesses
 BINDIR      := build/bin
 
-# Every kernel is named by its harness; its implementation lives in solutions/.
+# Every kernel is named by its harness; its implementation lives in solutions-cuda/ (CUDA) or solutions-metal/ (Metal).
 KERNELS := $(patsubst $(HARNESS_DIR)/%.cu,%,$(wildcard $(HARNESS_DIR)/*.cu))
 
 .PHONY: all clean help
@@ -12,13 +12,13 @@ all: $(KERNELS:%=$(BINDIR)/%.exe)
 # Pattern rule — works for every harness.
 #
 #   Build a kernel:          make build/bin/matrix-multiplication.exe
-#     (auto-links solutions/matrix-multiplication.cu — the stub or your code)
+#     (auto-links solutions-cuda/matrix-multiplication.cu — the stub or your code)
 #   Point at another file:   make build/bin/matrix-multiplication.exe SOLUTION=my-solution.cu
 #
-# If SOLUTION isn't given, link solutions/<name>.cu when it exists.
+# If SOLUTION isn't given, link solutions-cuda/<name>.cu when it exists.
 SOLUTION ?=
 $(BINDIR)/%.exe: $(HARNESS_DIR)/%.cu | $(BINDIR)
-	$(NVCC) $(NVCCFLAGS) -o $@ $< $(if $(SOLUTION),$(SOLUTION),$(wildcard solutions/$*.cu))
+	$(NVCC) $(NVCCFLAGS) -o $@ $< $(if $(SOLUTION),$(SOLUTION),$(wildcard solutions-cuda/$*.cu))
 
 $(BINDIR):
 	mkdir -p $(BINDIR)
@@ -38,7 +38,7 @@ METAL_CXX   := $(CXX) -std=c++17 -O2 -x c++ -DTENSOR_METAL -I tensor-lib -I kern
 METAL_LD    := -framework Metal -framework Foundation
 
 # Kernels that have both a .cpp wrapper and a .metal shader.
-METAL_KERNELS := $(foreach k,$(KERNELS),$(if $(and $(wildcard solutions/$(k).cpp),$(wildcard solutions/$(k).metal)),$(k)))
+METAL_KERNELS := $(foreach k,$(KERNELS),$(if $(and $(wildcard solutions-metal/$(k).cpp),$(wildcard solutions-metal/$(k).metal)),$(k)))
 
 # Shared .metal.h headers that shaders #include at runtime.
 METAL_HEADERS_SRC := $(wildcard kernel-implementation/*.metal.h)
@@ -55,7 +55,7 @@ $(METAL_DIR)/%.metal.h: kernel-implementation/%.metal.h | $(METAL_DIR)
 	cp $< $@
 
 # Copy shader source next to the binary for runtime compilation.
-$(METAL_DIR)/%.metal: solutions/%.metal | $(METAL_DIR)
+$(METAL_DIR)/%.metal: solutions-metal/%.metal | $(METAL_DIR)
 	cp $< $@
 
 # Compile the harness object (no metal-cpp implementation symbols).
@@ -63,7 +63,7 @@ $(METAL_DIR)/%.tensor.o: $(HARNESS_DIR)/%.cu tensor-lib/tensor.cuh tensor-lib/de
 	$(METAL_CXX) -c $< -o $@
 
 # Compile the wrapper object (carries the metal-cpp implementation).
-$(METAL_DIR)/%.wrapper.o: solutions/%.cpp tensor-lib/tensor.cuh tensor-lib/detail/tensor_metal.cuh tensor-lib/detail/tensor_common.cuh | $(METAL_DIR)
+$(METAL_DIR)/%.wrapper.o: solutions-metal/%.cpp tensor-lib/tensor.cuh tensor-lib/detail/tensor_metal.cuh tensor-lib/detail/tensor_common.cuh | $(METAL_DIR)
 	$(METAL_CXX) -DTENSOR_METAL_IMPL -c $< -o $@
 
 # Link (object files are kept for incremental rebuilds).
@@ -89,7 +89,7 @@ clean:
 
 help:
 	@echo "=== CUDA ==="
-	@echo "Build every harness (implementation comes from solutions/<name>.cu):"
+	@echo "Build every harness (implementation comes from solutions-cuda/<name>.cu):"
 	@echo "  make            # or ./build_all.sh (also builds the tests)"
 	@echo ""
 	@echo "Build one kernel:"

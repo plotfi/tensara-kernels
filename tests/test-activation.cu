@@ -7,7 +7,7 @@
 
 #include "test_utils.cuh"
 
-// solution() is linked from solutions/<activation>.cu; its signature varies by op.
+// solution() is linked from solutions-cuda/<activation>.cu; its signature varies by op.
 #if defined(ACT_LEAKY_RELU)
 extern "C" void solution(const float* input, float alpha, float* output, size_t n, size_t m);
 #elif defined(ACT_ELU)
