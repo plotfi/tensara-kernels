@@ -1,16 +1,16 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* input, int dim, float* output, const size_t* shape, size_t ndim);
 
 int main() {
-    harness::begin("max-dim");
+    tensor::begin("max-dim");
 
     int dim = 1;
     size_t ndim = 2;
 
-    harness::Buffer<float> input(64 * 64);
-    harness::Buffer<float> output(64);
-    harness::Buffer<size_t> shape(ndim);
+    tensor::Buffer<float> input(64 * 64);
+    tensor::Buffer<float> output(64);
+    tensor::Buffer<size_t> shape(ndim);
 
     input.fill_random();
     shape.set({64, 64});
@@ -19,5 +19,5 @@ int main() {
 
     output.preview("output");
 
-    harness::end();
+    tensor::end();
 }

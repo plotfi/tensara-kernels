@@ -1,10 +1,10 @@
 // Metal solution wrapper stub for "avg-pool-3d" (unimplemented).
 // Dispatches the no-op stub shader. Once implemented, bind the real
-// buffers (harness::buf(ptr)) and scalars (harness::arg(v)) and dispatch
+// buffers (tensor::buf(ptr)) and scalars (tensor::arg(v)) and dispatch
 // over the output, mirroring the CUDA solution.
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* input, int kernel_size, int stride, int padding, float* output, size_t H, size_t W, size_t D) {
-    auto pso = harness::pipeline("avg-pool-3d");
-    harness::dispatch(pso, {}, 1);  // TODO: bind real buffers/scalars
+    auto pso = tensor::pipeline("avg-pool-3d");
+    tensor::dispatch(pso, {}, 1);  // TODO: bind real buffers/scalars
 }

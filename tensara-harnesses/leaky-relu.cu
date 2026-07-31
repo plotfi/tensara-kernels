@@ -1,16 +1,16 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* input, float alpha, float* output, size_t n, size_t m);
 
 int main() {
-    harness::begin("leaky-relu");
+    tensor::begin("leaky-relu");
 
     float alpha = 0.01f;
     size_t n = 64;
     size_t m = 64;
 
-    harness::Buffer<float> input(n * m);
-    harness::Buffer<float> output(n * m);
+    tensor::Buffer<float> input(n * m);
+    tensor::Buffer<float> output(n * m);
 
     input.fill_random();
 
@@ -18,5 +18,5 @@ int main() {
 
     output.preview("output");
 
-    harness::end();
+    tensor::end();
 }

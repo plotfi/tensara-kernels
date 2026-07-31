@@ -1,15 +1,15 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* predictions, const float* targets, float* output, size_t n);
 
 int main() {
-    harness::begin("hinge-loss");
+    tensor::begin("hinge-loss");
 
     size_t n = 1024;
 
-    harness::Buffer<float> predictions(n);
-    harness::Buffer<float> targets(n);
-    harness::Buffer<float> output(1);
+    tensor::Buffer<float> predictions(n);
+    tensor::Buffer<float> targets(n);
+    tensor::Buffer<float> output(1);
 
     predictions.fill_random();
     targets.fill_random();
@@ -18,5 +18,5 @@ int main() {
 
     output.preview("output");
 
-    harness::end();
+    tensor::end();
 }

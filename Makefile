@@ -28,13 +28,13 @@ $(BINDIR):
 #
 #   make metal -j$(sysctl -n hw.ncpu)        # build all Metal kernels in parallel
 #   make metal/vector-addition               # build one
-#   HARNESS_SHADER_DIR=build/metal ./build/metal/vector-addition   # run
+#   TENSOR_SHADER_DIR=build/metal ./build/metal/vector-addition   # run
 # ---------------------------------------------------------------------------
 
 METAL_CPP   ?= metal-cpp
 CXX         ?= clang++
 METAL_DIR   := build/metal
-METAL_CXX   := $(CXX) -std=c++17 -O2 -x c++ -DHARNESS_METAL -I kernel-implementation -I$(METAL_CPP)
+METAL_CXX   := $(CXX) -std=c++17 -O2 -x c++ -DTENSOR_METAL -I tensor-lib -I kernel-implementation -I$(METAL_CPP)
 METAL_LD    := -framework Metal -framework Foundation
 
 # Kernels that have both a .cpp wrapper and a .metal shader.
@@ -45,7 +45,7 @@ METAL_HEADERS_SRC := $(wildcard kernel-implementation/*.metal.h)
 METAL_HEADERS_DST := $(METAL_HEADERS_SRC:kernel-implementation/%.metal.h=$(METAL_DIR)/%.metal.h)
 
 # Keep intermediate files — Make would delete them as intermediates otherwise.
-.PRECIOUS: $(METAL_DIR)/%.metal $(METAL_DIR)/%.metal.h $(METAL_DIR)/%.harness.o $(METAL_DIR)/%.wrapper.o
+.PRECIOUS: $(METAL_DIR)/%.metal $(METAL_DIR)/%.metal.h $(METAL_DIR)/%.tensor.o $(METAL_DIR)/%.wrapper.o
 
 .PHONY: metal metal-clean
 metal: $(METAL_KERNELS:%=$(METAL_DIR)/%)
@@ -59,15 +59,15 @@ $(METAL_DIR)/%.metal: solutions/%.metal | $(METAL_DIR)
 	cp $< $@
 
 # Compile the harness object (no metal-cpp implementation symbols).
-$(METAL_DIR)/%.harness.o: $(HARNESS_DIR)/%.cu kernel-implementation/harness.cuh kernel-implementation/detail/harness_metal.cuh kernel-implementation/detail/harness_common.cuh | $(METAL_DIR)
+$(METAL_DIR)/%.tensor.o: $(HARNESS_DIR)/%.cu tensor-lib/tensor.cuh tensor-lib/detail/tensor_metal.cuh tensor-lib/detail/tensor_common.cuh | $(METAL_DIR)
 	$(METAL_CXX) -c $< -o $@
 
 # Compile the wrapper object (carries the metal-cpp implementation).
-$(METAL_DIR)/%.wrapper.o: solutions/%.cpp kernel-implementation/harness.cuh kernel-implementation/detail/harness_metal.cuh kernel-implementation/detail/harness_common.cuh | $(METAL_DIR)
-	$(METAL_CXX) -DHARNESS_METAL_IMPL -c $< -o $@
+$(METAL_DIR)/%.wrapper.o: solutions/%.cpp tensor-lib/tensor.cuh tensor-lib/detail/tensor_metal.cuh tensor-lib/detail/tensor_common.cuh | $(METAL_DIR)
+	$(METAL_CXX) -DTENSOR_METAL_IMPL -c $< -o $@
 
 # Link (object files are kept for incremental rebuilds).
-$(METAL_DIR)/%: $(METAL_DIR)/%.harness.o $(METAL_DIR)/%.wrapper.o $(METAL_DIR)/%.metal $(METAL_HEADERS_DST)
+$(METAL_DIR)/%: $(METAL_DIR)/%.tensor.o $(METAL_DIR)/%.wrapper.o $(METAL_DIR)/%.metal $(METAL_HEADERS_DST)
 	$(CXX) $< $(word 2,$^) -o $@ $(METAL_LD)
 
 $(METAL_DIR):
@@ -107,7 +107,7 @@ help:
 	@echo "  make metal/softmax"
 	@echo ""
 	@echo "Run a Metal kernel:"
-	@echo "  HARNESS_SHADER_DIR=build/metal ./build/metal/softmax"
+	@echo "  TENSOR_SHADER_DIR=build/metal ./build/metal/softmax"
 	@echo ""
 	@echo "Set metal-cpp path (default: ../metal-kernels/metal-cpp/metal-cpp):"
 	@echo "  make metal METAL_CPP=/path/to/metal-cpp"

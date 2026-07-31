@@ -1,17 +1,17 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const uint8_t* q, const __nv_fp8_e4m3* scale, float sf_g, float* out, size_t m, size_t k);
 
 int main() {
-    harness::begin("nvfp4-dequantize");
+    tensor::begin("nvfp4-dequantize");
 
     float sf_g = 1.0f;
     size_t m = 64;
     size_t k = 64;
 
-    harness::Buffer<uint8_t> q(m * k / 2);
-    harness::Buffer<__nv_fp8_e4m3> scale(m * (k / 16));
-    harness::Buffer<float> out(m * k);
+    tensor::Buffer<uint8_t> q(m * k / 2);
+    tensor::Buffer<__nv_fp8_e4m3> scale(m * (k / 16));
+    tensor::Buffer<float> out(m * k);
 
     q.fill_random();
     scale.fill_random();
@@ -20,5 +20,5 @@ int main() {
 
     out.preview("out");
 
-    harness::end();
+    tensor::end();
 }

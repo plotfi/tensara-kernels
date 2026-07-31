@@ -1,15 +1,15 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* input_a, const float* input_b, float* output_c, size_t n);
 
 int main() {
-    harness::begin("square-matmul");
+    tensor::begin("square-matmul");
 
     size_t n = 64;
 
-    harness::Buffer<float> input_a(n * n);
-    harness::Buffer<float> input_b(n * n);
-    harness::Buffer<float> output_c(n * n);
+    tensor::Buffer<float> input_a(n * n);
+    tensor::Buffer<float> input_b(n * n);
+    tensor::Buffer<float> output_c(n * n);
 
     input_a.fill_random();
     input_b.fill_random();
@@ -18,5 +18,5 @@ int main() {
 
     output_c.preview("output_c");
 
-    harness::end();
+    tensor::end();
 }

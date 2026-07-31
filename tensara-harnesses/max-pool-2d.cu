@@ -1,9 +1,9 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* input, int kernel_size, int stride, int padding, int dilation, float* output, size_t H, size_t W);
 
 int main() {
-    harness::begin("max-pool-2d");
+    tensor::begin("max-pool-2d");
 
     int kernel_size = 3;
     int stride = 1;
@@ -12,8 +12,8 @@ int main() {
     size_t H = 32;
     size_t W = 32;
 
-    harness::Buffer<float> input(H * W);
-    harness::Buffer<float> output(H * W);
+    tensor::Buffer<float> input(H * W);
+    tensor::Buffer<float> output(H * W);
 
     input.fill_random();
 
@@ -21,5 +21,5 @@ int main() {
 
     output.preview("output");
 
-    harness::end();
+    tensor::end();
 }

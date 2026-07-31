@@ -1,16 +1,16 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* a, uint8_t* q, uint8_t* scale, size_t m, size_t k);
 
 int main() {
-    harness::begin("mxfp8-quantize");
+    tensor::begin("mxfp8-quantize");
 
     size_t m = 64;
     size_t k = 64;
 
-    harness::Buffer<float> a(m * k);
-    harness::Buffer<uint8_t> q(m * k);
-    harness::Buffer<uint8_t> scale(m * (k / 32));
+    tensor::Buffer<float> a(m * k);
+    tensor::Buffer<uint8_t> q(m * k);
+    tensor::Buffer<uint8_t> scale(m * (k / 32));
 
     a.fill_random();
 
@@ -19,5 +19,5 @@ int main() {
     q.preview("q");
     scale.preview("scale");
 
-    harness::end();
+    tensor::end();
 }

@@ -1,14 +1,14 @@
-#include "../kernel-implementation/harness.cuh"
+#include "../tensor-lib/tensor.cuh"
 
 extern "C" void solution(const float* X, float* Y, size_t size);
 
 int main() {
-    harness::begin("frobenius-norm");
+    tensor::begin("frobenius-norm");
 
     size_t size = 4096;
 
-    harness::Buffer<float> X(size);
-    harness::Buffer<float> Y(size);
+    tensor::Buffer<float> X(size);
+    tensor::Buffer<float> Y(size);
 
     X.fill_random();
 
@@ -16,5 +16,5 @@ int main() {
 
     Y.preview("Y");
 
-    harness::end();
+    tensor::end();
 }
