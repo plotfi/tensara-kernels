@@ -1,16 +1,8 @@
-// Solution stub for "threshold".
-// TODO: implement the body below. The signature is derived from
-//       kernel-harnesses/threshold.cu and must stay in sync with it.
-//
-// Build it (the build system auto-picks this file):
-//   make build/bin/threshold.exe
-//   ./build/bin/threshold.exe
-#include <cuda_runtime.h>
-#include <cuda_fp16.h>
-#include <cuda_fp8.h>
-#include <cstdint>
+// Solution for "threshold": binary thresholding, out = (x > t) ? 1 : 0.
+// Reuses the unified elementwise activation kernel -- threshold has the same
+// (float x, float alpha) shape, with alpha carrying the threshold value.
+#include "../kernel-implementation/activation.cuh"
 
-// Note: all pointer arguments are device pointers.
 extern "C" void solution(const float* input_image, float threshold_value, float* output_image, size_t height, size_t width) {
-    // TODO: implement threshold
+    multi_solution<threshold, 512>(input_image, output_image, height, width, threshold_value);
 }

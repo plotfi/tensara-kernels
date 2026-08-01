@@ -1,9 +1,10 @@
-// Metal shader stub for "threshold" (unimplemented). Fill in like the CUDA
-// solution once the algorithm exists; bind the same buffers/scalars in the
-// harness's Metal branch and dispatch over the output.
-#include <metal_stdlib>
-using namespace metal;
+// Metal shader for "threshold" -- unified activation kernel, op = Threshold.
+#include "activation.metal.h"
 
-kernel void solution(uint id [[thread_position_in_grid]]) {
-    // TODO: implement threshold
+kernel void solution(device const float* A [[buffer(0)]],
+                     device float*       C [[buffer(1)]],
+                     constant uint&      n [[buffer(2)]],
+                     constant float&     alpha [[buffer(3)]],
+                     uint gid [[thread_position_in_grid]]) {
+    activation_x8<Threshold>(A, C, n, alpha, gid);
 }
