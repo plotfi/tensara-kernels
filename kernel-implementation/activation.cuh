@@ -95,3 +95,6 @@ __device__ __forceinline__ float softplus(float x, float)         { return __log
 __device__ __forceinline__ float hard_sigmoid(float x, float) {
     return x <= -3.0f ? 0.0f : (x >= 3.0f ? 1.0f : __fdividef(x + 3.0f, 6.0f));
 }
+// Not a neural activation, but shares the elementwise (float x, float alpha)
+// shape: binary thresholding with alpha = threshold value.
+__device__ __forceinline__ float threshold(float x, float alpha)  { return x > alpha ? 1.0f : 0.0f; }

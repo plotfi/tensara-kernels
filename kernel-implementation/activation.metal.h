@@ -17,6 +17,8 @@ struct Gelu        { static inline float apply(float x, float)   { return 0.5f *
 struct Selu        { static inline float apply(float x, float)   { return 1.0507f * (fmax(0.0f, x) + fmin(0.0f, 1.67326f * (exp(x) - 1.0f))); } };
 struct Softplus    { static inline float apply(float x, float)   { return log(1.0f + exp(x)); } };
 struct HardSigmoid { static inline float apply(float x, float)   { return x <= -3.0f ? 0.0f : (x >= 3.0f ? 1.0f : (x + 3.0f) / 6.0f); } };
+// Not a neural activation, but shares the elementwise shape: binary threshold.
+struct Threshold   { static inline float apply(float x, float t) { return x > t ? 1.0f : 0.0f; } };
 
 // 8 elements per thread (two float4s back to back), mirroring activation.cuh's
 // activation_kernelx8. `n` = total elements, grid = ceil(n/8) threads.
