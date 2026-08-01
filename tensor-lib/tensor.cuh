@@ -1,6 +1,6 @@
 #pragma once
 
-// Cross-platform launch/benchmark helpers for the Tensara harnesses.
+// Cross-platform launch/benchmark helpers for the kernel harnesses.
 //
 // Every harness does the same thing: seed RNG, allocate GPU buffers, fill
 // inputs, run the kernel under a timed loop, then preview the outputs. The
@@ -33,7 +33,7 @@
 #  elif defined(__APPLE__)
 #    define TENSOR_METAL 1
 #  else
-#    define TENSOR_CUDA 1   // tensara is CUDA-first; default to it
+#    define TENSOR_CUDA 1   // CUDA-first; default to it
 #  endif
 #endif
 

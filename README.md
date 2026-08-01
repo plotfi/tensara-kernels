@@ -1,4 +1,4 @@
-# Tensara Kernels
+# Kernel Benchmarks
 
 CUDA kernel implementations with performance-measuring harnesses. Each harness runs a 3-iteration warmup followed by 100 timed iterations and reports the average kernel time.
 

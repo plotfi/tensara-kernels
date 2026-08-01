@@ -190,7 +190,7 @@ __device__ __forceinline__ float out_x  (float x, float)      { return x; }
 __device__ __forceinline__ float out_expdiv(float x, float f) { return __fdividef(__expf(x), f); }
 
 // ============================================================================
-// Op catalog: one alias per Tensara reduction problem.
+// Op catalog: one alias per reduction problem.
 // ============================================================================
 
 // L1 normalization:  y = x / sum(|x|)

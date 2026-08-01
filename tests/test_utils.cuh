@@ -1,6 +1,6 @@
 #pragma once
 
-// Shared helpers for the Tensara correctness tests.
+// Shared helpers for the correctness tests.
 //
 // Each test file computes a CPU reference for a kernel's `solution()` and
 // compares it against the GPU output with a tolerance. A test's main() returns
