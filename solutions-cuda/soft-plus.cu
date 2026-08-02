@@ -2,5 +2,5 @@
 #include "../kernel-implementation/activation.cuh"
 
 extern "C" void solution(const float* input, float* output, size_t n, size_t m) {
-    multi_solution<softplus, 1024>(input, output, n, m, 0.0f);
+    multi_solution<Softplus, 1024>(input, output, n, m, 0.0f);
 }

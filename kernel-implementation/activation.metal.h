@@ -1,24 +1,11 @@
 // Unified activation shader header (Metal port of kernel-implementation/
-// activation.cuh). Each activation is a functor with a uniform
-// (float x, float alpha) signature; stateless ones ignore alpha. A shader
-// selects one and calls activation_x8<Functor>. Included by every activation
-// .metal via the harness's local-include inliner.
+// activation.cuh). Selects a scalar-op functor from scalar-ops.metal.h and
+// calls activation_x8<Functor>. Included by every activation .metal via the
+// harness's local-include inliner (which also inlines scalar-ops.metal.h).
 #pragma once
 #include <metal_stdlib>
 using namespace metal;
-
-struct Relu        { static inline float apply(float x, float)   { return fmax(x, 0.0f); } };
-struct LeakyRelu   { static inline float apply(float x, float a) { return x > 0.0f ? x : x * a; } };
-struct Elu         { static inline float apply(float x, float a) { return x > 0.0f ? x : a * (exp(x) - 1.0f); } };
-struct Sigmoid     { static inline float apply(float x, float)   { return 1.0f / (1.0f + exp(-x)); } };
-struct Swish       { static inline float apply(float x, float)   { return x / (1.0f + exp(-x)); } };
-struct TanhAct     { static inline float apply(float x, float)   { return tanh(x); } };
-struct Gelu        { static inline float apply(float x, float)   { return 0.5f * x * (1.0f + tanh(0.7978845608028654f * (x + 0.044715f * x * x * x))); } };
-struct Selu        { static inline float apply(float x, float)   { return 1.0507f * (fmax(0.0f, x) + fmin(0.0f, 1.67326f * (exp(x) - 1.0f))); } };
-struct Softplus    { static inline float apply(float x, float)   { return log(1.0f + exp(x)); } };
-struct HardSigmoid { static inline float apply(float x, float)   { return x <= -3.0f ? 0.0f : (x >= 3.0f ? 1.0f : (x + 3.0f) / 6.0f); } };
-// Not a neural activation, but shares the elementwise shape: binary threshold.
-struct Threshold   { static inline float apply(float x, float t) { return x > t ? 1.0f : 0.0f; } };
+#include "scalar-ops.metal.h"   // shared scalar-op functors (Relu, Swish, ...)
 
 // 8 elements per thread (two float4s back to back), mirroring activation.cuh's
 // activation_kernelx8. `n` = total elements, grid = ceil(n/8) threads.
