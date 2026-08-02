@@ -64,6 +64,7 @@ declare -A TESTS=(
   [matmul-sigmoid-sum]="test-matmul-sigmoid-sum.cu|"
   [conv-2d]="test-conv-2d.cu|"
   [conv-square-3d]="test-conv-square-3d.cu|"
+  [conv1d-maxpool1d]="test-conv1d-maxpool1d.cu|"
   [conv2d-relu-hardswish]="test-conv2d-relu-hardswish.cu|"
   [grayscale]="test-grayscale.cu|"
   [threshold]="test-threshold.cu|"
