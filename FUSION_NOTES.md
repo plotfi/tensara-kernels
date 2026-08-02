@@ -95,11 +95,19 @@ epilogue**, but because it lands on *reused inputs* rather than *write-once
 outputs*, it inherits Case 2's recompute/locality tradeoff — it sits between the
 two.
 
-**In this repo:** the `mxfp4-gemm` / `mxfp8-gemm` / `nvfp4-gemm` kernels are
-exactly the motivating shape ("dequantize the quantized operands, then matmul").
-A prologue-fused version dequantizes inside the matmul's load path (no
-materialized upcast tensor) — the input-side analog of what `gemm-epilogue.cuh`
-does at the store.
+**Worked example in this repo:** `kernel-implementation/gemm-prologue.cuh`
+(kernel `int8-weight-gemm`) — a weight-only int8 **group**-quantized linear
+layer, `C = A @ dequant(Wq, scale)ᵀ`. The dequant is a prologue functor
+(`DequantInt8`) applied at the load, so the fp32 weight never exists in memory;
+only the int8 `Wq` (4× smaller) and the group scales are read. Crucially the
+group scale **varies along the reduction K**, so it *cannot* be hoisted out of
+the sum into an epilogue — the dequant genuinely has to happen at the load,
+which is what makes it a prologue. (The `mxfp4-gemm` / `nvfp4-gemm` kernels are
+the same shape with block-scaled fp4/fp8 formats.)
+
+It's the input-side analog of what `gemm-epilogue.cuh` does at the store: SASS
+(sm_89) shows one kernel with `S8` loads of the int8 weight feeding straight
+into `FFMA` — no intermediate fp32 weight buffer, no second kernel.
 
 ---
 

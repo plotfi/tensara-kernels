@@ -61,6 +61,7 @@ declare -A TESTS=(
   [gemm-multiply-leakyrelu]="test-gemm-multiply-leakyrelu.cu|"
   [matmul-swish]="test-matmul-swish.cu|"
   [matmul-swish-scaling]="test-matmul-swish-scaling.cu|"
+  [int8-weight-gemm]="test-int8-weight-gemm.cu|"
   [matmul-sigmoid-sum]="test-matmul-sigmoid-sum.cu|"
   [conv-2d]="test-conv-2d.cu|"
   [conv-square-3d]="test-conv-square-3d.cu|"
