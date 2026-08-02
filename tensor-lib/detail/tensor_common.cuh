@@ -43,6 +43,10 @@ inline void fill_random(uint8_t* p, size_t n) {
     for (size_t i = 0; i < n; i++)
         p[i] = static_cast<uint8_t>(rand() % 256);
 }
+inline void fill_random(int8_t* p, size_t n) {
+    for (size_t i = 0; i < n; i++)
+        p[i] = static_cast<int8_t>((rand() & 0xff) - 128);   // [-128, 127]
+}
 inline void fill_random(uint32_t* p, size_t n) {
     for (size_t i = 0; i < n; i++)
         p[i] = static_cast<uint32_t>(rand());
@@ -57,6 +61,7 @@ inline void preview_value(float v)    { printf("%f ", v); }
 inline void preview_value(double v)   { printf("%f ", v); }
 inline void preview_value(int v)      { printf("%d ", v); }
 inline void preview_value(uint8_t v)  { printf("%u ", static_cast<unsigned>(v)); }
+inline void preview_value(int8_t v)   { printf("%d ", static_cast<int>(v)); }
 inline void preview_value(uint32_t v) { printf("%u ", v); }
 inline void preview_value(uint64_t v) { printf("%llu ", static_cast<unsigned long long>(v)); }
 
