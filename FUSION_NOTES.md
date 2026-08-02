@@ -12,6 +12,10 @@ the consumer uses to read the producer's output.
 Both are **producer→consumer** fusions (one dependency edge: A feeds B). "Two
 producers" fusion means something else — see [Terminology](#terminology).
 
+Case 1 has an **input-side mirror** worth naming separately: fuse a pointwise op
+onto the compute's *inputs* at the load rather than its output at the store —
+see [Prologue fusion](#prologue-fusion--the-input-side-mirror).
+
 ---
 
 ## Case 1 — map / pointwise (epilogue) fusion
@@ -38,6 +42,64 @@ Composition (`Compose<F,G>`) is just function composition, all inlined.
 **Verified (SASS, sm_89, `Compose<Swish,Scale>` variant):** 0 CALL instructions
 (epilogue fully inlined), `__expf` → `MUFU.EX2`, a single `STG.E` store. (`Swish`
 uses `__fdividef` to stay call-free; a plain `/` emits the IEEE-division helper.)
+
+---
+
+## Prologue fusion — the input-side mirror
+
+Everything in Case 1 fuses a pointwise op onto the compute's *output* (the
+epilogue). The mirror image is **prologue fusion**: fuse a pointwise op onto the
+compute's *inputs*, applied as each operand is loaded, before it enters the math.
+
+```
+epilogue:  C[i,j] = ep( Σ_k A[i,k] · B[k,j] )          // op on the OUTPUT, at the store
+prologue:  C[i,j] =    Σ_k pa(A[i,k]) · pb(B[k,j])     // op on the INPUTS, at the load
+```
+
+In `gemm-epilogue.cuh` a prologue would wrap the operand reads instead of the store:
+
+```cpp
+float av = pa(A[i * K + k]);                        // prologue on A
+float bv = pb(B_T ? B[j * K + k] : B[k * N + j]);   // prologue on B
+acc = fmaf(av, bv, acc);
+```
+
+**Canonical use case (why PyTorch Inductor added it): low-precision / weight-only
+quantized matmuls.** The weight is stored quantized (int8/int4/fp8) and must be
+dequantized before the matmul. Unfused, you materialize a full upcast fp16 weight
+in DRAM, then matmul it. Prologue fusion folds the dequant into the load — you
+read the small quantized tensor and expand it *in-kernel* at the point of use, so
+the upcast tensor never exists in memory. That saves both the materialization and
+the bandwidth (you read the 4–8× smaller tensor). TorchInductor's `mm`/`addmm`
+Triton templates gained prologue fusion alongside the epilogue fusion they already
+had, largely to make these dequant-matmuls fast; it is autotuned.
+
+**Why prologue is trickier than epilogue** (the key asymmetry):
+
+- An **epilogue** op runs **once per output element** — outputs are written once,
+  so there is no redundancy. Pure win, always inlinable (that is why Case 1 is
+  "easy").
+- A **prologue** op runs on **inputs, which a tiled matmul re-reads many times**
+  (each element of A feeds `N/BLOCK_N` output tiles, each element of B feeds
+  `M/BLOCK_M`). Fusing it naively **recomputes** the op on every reload. So
+  prologue fusion is really the **recompute-vs-stage tradeoff from Case 2**,
+  applied to a pointwise op: recompute per tile-load, or apply it once when the
+  tile is staged into shared memory and reuse it within the block.
+- It usually still wins (dequant is cheap; bandwidth/materialization savings
+  dominate; shared-memory staging bounds the recompute), but it raises
+  register/shared-memory pressure — so frameworks **gate it behind
+  heuristics/autotuning** rather than always applying it.
+
+So in the taxonomy, a prologue is a **map fusion (1→1 pointwise) like the
+epilogue**, but because it lands on *reused inputs* rather than *write-once
+outputs*, it inherits Case 2's recompute/locality tradeoff — it sits between the
+two.
+
+**In this repo:** the `mxfp4-gemm` / `mxfp8-gemm` / `nvfp4-gemm` kernels are
+exactly the motivating shape ("dequantize the quantized operands, then matmul").
+A prologue-fused version dequantizes inside the matmul's load path (no
+materialized upcast tensor) — the input-side analog of what `gemm-epilogue.cuh`
+does at the store.
 
 ---
 
@@ -88,6 +150,9 @@ This repo's fusions are **producer→consumer** (a linear chain `in → conv →
 out`). Watch the labels:
 
 - **Map fusion** = 1→1 access (Case 1). Also called element-wise / injective fusion.
+- **Epilogue fusion** = a map fused onto the compute's *output* (at the store).
+  **Prologue fusion** = a map fused onto its *inputs* (at the load). Same pointwise
+  op, opposite side; prologue carries a recompute cost because inputs are reused.
 - **Stencil / reduction fusion** = many→1 access (Case 2). The consumer is a
   stencil (window) or a reduction.
 - **Horizontal / sibling fusion** = two *independent* producers (no dependency)
@@ -138,6 +203,10 @@ Ordered by how directly each hits the pointwise-vs-window/reduction distinction.
   shared-memory staging written by hand in `conv1d-maxpool1d.cuh`.
 - **CUTLASS** (NVIDIA) — the reference for **epilogue fusion** (Case 1); see
   "epilogue visitor tree" for the composable-op pattern `Compose<>` mirrors.
+  Its mixed-input GEMM examples are the prologue (input-side) analog.
+- **TorchInductor** — Ansel et al., *"PyTorch 2,"* ASPLOS 2024. Inductor's `mm`/
+  `addmm` templates do both **epilogue** and **prologue** fusion (the latter added
+  mainly for dequant / weight-only-quantized matmuls); both are autotuned.
 
 ### Classic loop-fusion theory + surveys
 - **Allen & Kennedy**, *Optimizing Compilers for Modern Architectures* — the
