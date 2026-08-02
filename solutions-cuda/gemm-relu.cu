@@ -1,16 +1,9 @@
-// Solution stub for "gemm-relu".
-// TODO: implement the body below. The signature is derived from
-//       kernel-harnesses/gemm-relu.cu and must stay in sync with it.
-//
-// Build it (the build system auto-picks this file):
-//   make build/bin/gemm-relu.exe
-//   ./build/bin/gemm-relu.exe
-#include <cuda_runtime.h>
-#include <cuda_fp16.h>
-#include <cuda_fp8.h>
-#include <cstdint>
+// Solution for "gemm-relu": C[B,M] = relu(A[B,N] @ W[M,N]^T + b[M]).
+// Reuses the epilogue-fused GEMM body: transposed-B + bias producer, Relu epilogue.
+#include "../kernel-implementation/gemm-epilogue.cuh"
 
-// Note: all pointer arguments are device pointers.
 extern "C" void solution(const float* A, const float* W, const float* b, float* C, size_t B, size_t N, size_t M) {
-    // TODO: implement gemm-relu
+    // Mrows=B, Ncols=M, Kinner=N; W is [M,N] read transposed as W[j*N+k].
+    launch_gemm_epilogue<Relu, /*B_T=*/true, /*HAS_BIAS=*/true>(
+        A, W, b, C, static_cast<int>(B), static_cast<int>(M), static_cast<int>(N), Relu{});
 }
