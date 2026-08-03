@@ -7,6 +7,9 @@ do — and don't — fix it.
 - **[`egpu-fix.sh`](egpu-fix.sh)** — the working mitigation. **Use this.**
 - **[`egpu-fix-old.sh`](egpu-fix-old.sh)** — the original Reddit mitigation, kept
   for the record. **Superseded** — it treats the wrong layer (see below).
+- **[`egpu-stress.sh`](egpu-stress.sh)** — live dashboard: loops the CUDA test
+  suite while showing power/clock/temp (min/avg/max) in place, with a spinner
+  status indicator and drop detection. Use it to confirm the mitigation holds.
 
 ---
 
@@ -145,6 +148,30 @@ that was actually killing the card.
 (`nvidia-egpu-old-reddit.conf`, a GRUB `.bak`) so it can be applied and rolled
 back cleanly without clobbering hand-edited configs. It prints a warning that it
 does not disable GSP.
+
+---
+
+## Verifying it holds — `egpu-stress.sh`
+
+The drop was a *transition* failure (survives compute, dies at idle just after),
+so the way to trust the fix is to hammer the compute→idle cycle and watch. This
+script does that with a live in-place dashboard:
+
+```bash
+./egpu-stress.sh              # loop the CUDA suite + live dashboard
+./egpu-stress.sh --monitor    # metrics only, don't run the suite
+./egpu-stress.sh --interval 2 # slower refresh (default 1s)
+```
+
+It loops `tests/run_tests.sh` in the background and refreshes power / SM clock /
+temp / util each second — each with a bar (scaled to the 150 W / 1500 MHz caps)
+and a running **min / avg / max** — plus a spinner, a suite pass/regression
+counter, and a **drop counter** that flips the status to `✖ DROPPED OFF BUS` the
+instant `nvidia-smi` stops responding. Ctrl-C restores the cursor and stops the
+loop. Needs `bc` and `tput`; auto-finds the suite (or set `TESTS_SCRIPT=…`).
+
+Observed stable: 5× full suite + idle tail, **0 drops**, clock pinned at the
+1500 MHz ceiling under load and 210 MHz at idle, ~24–28 W, ~49–50 °C.
 
 ---
 
