@@ -11,6 +11,7 @@
 #
 # Usage:
 #   ./run_tests.sh                       # test everything against solutions-cuda/
+#   ./run_tests.sh <kernel>              # build + run ONE kernel, with full output
 #   SOLUTIONS_DIR=/path ./run_tests.sh   # test against a different set of solutions
 #
 # Exit code = regressions + build errors (real problems). Unimplemented kernels
@@ -112,6 +113,33 @@ UNCOVERED=(mxfp4-quantize mxfp4-dequantize mxfp4-gemm
            mxfp8-quantize mxfp8-dequantize mxfp8-gemm
            nvfp4-quantize nvfp4-dequantize nvfp4-gemm nvfp4-gemv
            poly-multiply-ff vector-multiply-ff)
+
+# ---- single-kernel mode: ./run_tests.sh <kernel> ---------------------------
+# Builds and runs exactly one kernel WITHOUT suppressing output, so you see the
+# compile errors / value mismatches. Exit code = that kernel's result.
+if [[ -n "${1:-}" ]]; then
+    k="$1"; entry="${TESTS[$k]:-}"
+    if [[ -z "$entry" ]]; then
+        echo "no test for '$k'." >&2
+        if printf '%s\n' "${UNCOVERED[@]}" | grep -qx "$k"; then
+            echo "('$k' is uncovered — no test yet; needs an exact numeric spec.)" >&2
+        else
+            echo "known kernels:" >&2
+            printf '%s\n' "${!TESTS[@]}" | sort | column 2>/dev/null || printf '  %s\n' "${!TESTS[@]}" | sort
+        fi
+        exit 2
+    fi
+    src="${entry%%|*}"; flags="${entry#*|}"; sol="$SOLUTIONS_DIR/$k.cu"
+    if grep -q "// TODO: implement" "$sol" 2>/dev/null; then
+        echo "$k is unimplemented (solutions-cuda/$k.cu is still a stub)."; exit 0
+    fi
+    echo "building: $NVCC $NVCCFLAGS $flags $src $sol"
+    if ! $NVCC $NVCCFLAGS $flags -o "$BINDIR/test-$k.exe" "$src" "$sol"; then
+        echo "BUILD-FAIL  $k"; exit 1
+    fi
+    if "$BINDIR/test-$k.exe"; then echo "PASS  $k"; exit 0
+    else echo "FAIL  $k"; exit 1; fi
+fi
 
 pass=0; regression=0; build_fail=0; unimpl=0
 regressions=(); build_fails=()
