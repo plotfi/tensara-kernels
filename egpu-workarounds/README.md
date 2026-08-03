@@ -4,6 +4,13 @@ This directory documents why a **Thunderbolt/USB4-connected RTX 4070 Ti** (Razer
 Core X V2) periodically falls off the PCIe bus on Linux, and the mitigations that
 do — and don't — fix it.
 
+> **Status: RESOLVED (2026-08-02).** On driver 610.43.02 (proprietary module),
+> `egpu-fix.sh apply` + reboot gives `GSP Firmware: N/A`, `pci=realloc`, a 150 W
+> power cap and a 210–1500 MHz clock lock. Verified stable across **5× full CUDA
+> suite + idle tail with 0 drops** — the compute→idle transition that used to
+> kill the card. The GSP disable is the fix; the old Reddit link-power mitigation
+> never worked because it doesn't touch GSP (see below).
+
 - **[`egpu-fix.sh`](egpu-fix.sh)** — the working mitigation. **Use this.**
 - **[`egpu-fix-old.sh`](egpu-fix-old.sh)** — the original Reddit mitigation, kept
   for the record. **Superseded** — it treats the wrong layer (see below).
