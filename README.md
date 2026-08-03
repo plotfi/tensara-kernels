@@ -10,9 +10,8 @@ solutions-cuda/                # Per kernel: <k>.cu (CUDA solution)
 solutions-metal/               # Per kernel: <k>.cpp + <k>.metal (Metal wrapper + shader)
 kernel-implementation/         # Shared: harness.cuh (+ detail/ backends), reduction.cuh, activation.cuh
 tests/                         # Correctness tests (CPU reference vs. GPU)
-Makefile                       # CUDA build system
-build_all.sh                   # Build every harness + test (CUDA, parallel)
-build_metal.sh                 # Build every harness on Metal (macOS + metal-cpp)
+CMakeLists.txt                 # Build system (CUDA harnesses + tests via CTest; Metal on macOS)
+build_metal.sh                 # Legacy standalone Metal build (macOS + metal-cpp)
 run_all.sh                     # Run every built binary
 ```
 
@@ -28,19 +27,27 @@ BENCHMARK(solution(d_a, d_b, d_c, m, n, k));
 
 ## Building
 
-**Build everything — all 86 harnesses build out of the box:**
+The build is CMake. Each harness/test executable lists **both** the harness and
+its `solutions-cuda/<name>.cu` as sources, so editing a solution (or a shared
+header) triggers a proper rebuild.
+
+**Configure once, then build everything:**
 ```bash
-./build_all.sh
+cmake -S . -B build            # add -G Ninja if you have it
+cmake --build build -j         # all harnesses + tests -> build/bin/<name>.exe
 ```
 Implemented kernels link their in-repo code; every not-yet-implemented kernel
 links a stub from `solutions-cuda/`, so it compiles and runs (producing zeroed
 output) until you fill it in.
 
-**Build one harness:**
+**Build a subset:**
 ```bash
-make build/bin/matrix-multiplication.exe        # auto-links solutions-cuda/matrix-multiplication.cu
-make build/bin/matrix-multiplication.exe SOLUTION=my-solution.cu   # or point at your own file
+cmake --build build -j -t harnesses                    # just the benchmark harnesses
+cmake --build build -t matrix-multiplication           # one harness
 ```
+
+By default `CMAKE_CUDA_ARCHITECTURES=native` (the building machine's GPU);
+override with `cmake -S . -B build -DCMAKE_CUDA_ARCHITECTURES=89`.
 
 ### Filling in a kernel
 
@@ -51,7 +58,7 @@ its solution and rebuild:
 
 ```bash
 $EDITOR solutions-cuda/matrix-multiplication.cu   # fill in / edit the body
-make build/bin/matrix-multiplication.exe
+cmake --build build -t matrix-multiplication
 ./build/bin/matrix-multiplication.exe
 ```
 
@@ -106,10 +113,12 @@ both — so `solution()` is defined once per binary and the harness is unchanged
 
 **Build + run on Metal (macOS, needs metal-cpp headers):**
 ```bash
-METAL_CPP=/path/to/metal-cpp ./build_metal.sh              # all kernels
-METAL_CPP=/path/to/metal-cpp ./build_metal.sh relu         # just one
-HARNESS_SHADER_DIR=build/metal ./build/metal/relu          # shaders load from this dir
+cmake -S . -B build -DMETAL_CPP=/path/to/metal-cpp
+cmake --build build -t metal                              # all Metal kernels
+TENSOR_SHADER_DIR=build/metal ./build/metal/relu          # shaders load from this dir
 ```
+The standalone `./build_metal.sh` still works as a legacy fallback. (The Metal
+CMake path is provided for parity but is verified on macOS only.)
 
 The 22 implemented kernels (activations, vector-addition, matrix-vector,
 conv-1d, the reductions, softmax, avg-pool-1d, grayscale) have real MSL shaders +
@@ -128,10 +137,23 @@ nonzero on failure. `tests/test_utils.cuh` holds the shared device-buffer and
 `compare`/`report` helpers.
 
 Every test links `solutions-cuda/<kernel>.cu` — the same file the harness uses — so a
-test runs your real code, whatever's in that file. Just run:
+test runs your real code, whatever's in that file.
+
+**Via CTest (preferred):** tests are registered with CMake. Tests whose solution
+is still a stub are marked `DISABLED`, so a run is green by default and only
+turns red on a real regression:
 
 ```bash
-./tests/run_tests.sh
+cmake --build build -j -t tests    # build every test
+ctest --test-dir build -j          # run all enabled tests
+ctest --test-dir build -R huber    # run one (regex on kernel name)
+```
+
+**Via the standalone runner** (also builds on demand, prints a full accounting):
+
+```bash
+./tests/run_tests.sh               # everything
+./tests/run_tests.sh huber-loss    # one kernel, full output
 ```
 
 It builds and runs one test per kernel — 74 in all — plus lists the 12 uncovered
@@ -161,18 +183,18 @@ while stubs remain unimplemented; it only trips on something actually broken.
 `SOLUTIONS_DIR` defaults to `../solutions`; point it elsewhere to test a
 different set of solution files.
 
-Build and run a single test against any solution file:
+To test against a different set of solution files, `SOLUTIONS_DIR` still works
+with the standalone runner:
 
 ```bash
-make -C tests build/bin/test-softmax.exe SOLUTION=/path/to/your-softmax.cu
-./tests/build/bin/test-softmax.exe
+SOLUTIONS_DIR=/path/to/your-solutions ./tests/run_tests.sh
 ```
 
-To verify every spec test compiles (signatures + reference code) in one shot —
-no linking, no GPU required:
+To verify every test builds (signatures + reference code compile and link) in one
+shot, just build the `tests` target:
 
 ```bash
-make -C tests compile-check
+cmake --build build -j -t tests
 ```
 
 Some spec tests encode a **documented assumption** where the exact semantics
@@ -190,9 +212,11 @@ micro-scaling FP formats `mxfp4-*`, `mxfp8-*`, `nvfp4-*`
 these can be added.
 
 To add a test: copy the closest `tests/test-<kernel>.cu`, declare
-`extern "C" solution(...)`, write the CPU reference, and add the kernel to
-`SPEC_TESTS` in `tests/Makefile` and the `TESTS` map in `tests/run_tests.sh`. The
-`tests/Makefile` pattern rule links `solutions-cuda/<kernel>.cu` automatically.
+`extern "C" solution(...)`, and write the CPU reference. A plain
+`tests/test-<kernel>.cu` is picked up automatically by CMake (and by
+`tests/run_tests.sh` via its `TESTS` map); a test that shares a grouped source
+with a `-D` flag needs an `add_kernel_test(...)` line in `CMakeLists.txt`. Each
+test links `solutions-cuda/<kernel>.cu` automatically.
 
 ## Adding a New Kernel
 
@@ -224,11 +248,13 @@ Harnesses are built from the helpers in `kernel-implementation/harness.cuh`:
    }
    ```
 
-2. Implement `solution()` in a separate file (e.g. `my-solution.cu`).
+2. Implement `solution()` in `solutions-cuda/my-kernel.cu` (the harness and tests
+   auto-link this by name).
 
-3. Build and run:
+3. Reconfigure so CMake globs the new harness, then build and run:
    ```bash
-   make build/bin/my-kernel.exe SOLUTION=my-solution.cu
+   cmake -S . -B build              # picks up kernel-harnesses/my-kernel.cu
+   cmake --build build -t my-kernel
    ./build/bin/my-kernel.exe
    ```
 
@@ -259,5 +285,5 @@ Seven kernels are built on it (`solutions-cuda/{rms-norm,l1-norm,l2-norm,max-nor
 | softmax | `exp(x)` | sum | `acc` | `exp(x) / acc` |
 
 Assumes row length is a multiple of 4 (float4 vectorized) and `BLOCK_SIZE` is a
-power of two. Build any of them directly, e.g. `make build/bin/l2-norm.exe`.
+power of two. Build any of them directly, e.g. `cmake --build build -t l2-norm`.
 
