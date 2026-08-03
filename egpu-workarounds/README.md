@@ -95,8 +95,7 @@ does **not** address GSP, so it's a complement to A2, not a substitute.
 
 ## The old mitigation — `egpu-fix-old.sh` (why it does NOT work here)
 
-From the r/eGPU post *"Razer Core X V2 on Kubuntu 26.04 having PCIe drop"* (same
-4070 Ti + Razer Core X V2, on the **395** driver):
+
 
 ```
 # /etc/default/grub
