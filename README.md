@@ -162,7 +162,7 @@ Ninja generator, builds the tests, and runs them — whole suite or one kernel:
 
 ```bash
 ./run-tests.sh                # build + run the whole suite
-./run-tests.sh huber-loss     # build + run just one kernel's test
+./run-tests.sh huber-loss     # build + run just one kernel's test + its benchmark
 ./run-tests.sh -l             # list test names (Disabled = stub solution)
 ./run-tests.sh -b [kernel]    # build only, don't run
 ./run-tests.sh -c             # clean-reconfigure (rm -rf build) first
@@ -171,6 +171,19 @@ Ninja generator, builds the tests, and runs them — whole suite or one kernel:
 
 It configures `./build` on first run (and wipes a stale non-Ninja `build/`), so
 you don't have to run `cmake` yourself.
+
+A single-kernel run prints the correctness result **and** the benchmark output:
+
+```
+>> running test huber-loss
+100% tests passed, 0 tests failed out of 1
+
+>> benchmark:
+=== huber-loss ===
+Avg kernel time: 0.0039 ms (over 100 iters)
+Output output (first 10): 33.799072
+Done.
+```
 
 **Via CTest directly:** tests are registered with CMake. Tests whose solution
 is still a stub are marked `DISABLED`, so a run is green by default and only
