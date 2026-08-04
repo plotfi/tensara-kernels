@@ -6,8 +6,8 @@ int main() {
     tensor::begin("threshold");
 
     float threshold_value = 0.5f;
-    size_t height = 64;
-    size_t width = 64;
+    size_t height = tensor::bench_size("HEIGHT", 64);
+    size_t width = tensor::bench_size("WIDTH", 64);
 
     tensor::Buffer<float> input_image(height * width);
     tensor::Buffer<float> output_image(height * width);

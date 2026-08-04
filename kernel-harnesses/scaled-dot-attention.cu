@@ -5,10 +5,10 @@ extern "C" void solution(const float* Q, const float* K, const float* V, float* 
 int main() {
     tensor::begin("scaled-dot-attention");
 
-    size_t B = 2;
-    size_t H = 4;
-    size_t S = 32;
-    size_t E = 64;
+    size_t B = tensor::bench_size("B", 2);
+    size_t H = tensor::bench_size("H", 4);
+    size_t S = tensor::bench_size("S", 32);
+    size_t E = tensor::bench_size("E", 64);
 
     tensor::Buffer<float> Q(B * H * S * E);
     tensor::Buffer<float> K(B * H * S * E);

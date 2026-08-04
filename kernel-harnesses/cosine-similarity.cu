@@ -5,8 +5,8 @@ extern "C" void solution(const float* predictions, const float* targets, float* 
 int main() {
     tensor::begin("cosine-similarity");
 
-    size_t n = 64;
-    size_t d = 128;
+    size_t n = tensor::bench_size("N", 64);
+    size_t d = tensor::bench_size("D", 128);
 
     tensor::Buffer<float> predictions(n * d);
     tensor::Buffer<float> targets(n * d);

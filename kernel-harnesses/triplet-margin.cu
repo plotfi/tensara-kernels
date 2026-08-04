@@ -5,8 +5,8 @@ extern "C" void solution(const float* anchor, const float* positive, const float
 int main() {
     tensor::begin("triplet-margin");
 
-    size_t B = 8;
-    size_t E = 128;
+    size_t B = tensor::bench_size("B", 8);
+    size_t E = tensor::bench_size("E", 128);
     float margin = 1.0f;
 
     tensor::Buffer<float> anchor(B * E);

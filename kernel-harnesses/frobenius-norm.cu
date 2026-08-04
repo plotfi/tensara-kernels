@@ -5,7 +5,7 @@ extern "C" void solution(const float* X, float* Y, size_t size);
 int main() {
     tensor::begin("frobenius-norm");
 
-    size_t size = 4096;
+    size_t size = tensor::bench_size("SIZE", 4096);
 
     tensor::Buffer<float> X(size);
     tensor::Buffer<float> Y(size);

@@ -5,7 +5,7 @@ extern "C" void solution(const float* adj_matrix, float* output, size_t n);
 int main() {
     tensor::begin("all-pairs-shortest-path");
 
-    size_t n = 64;
+    size_t n = tensor::bench_size("N", 64);
 
     tensor::Buffer<float> adj_matrix(n * n);
     tensor::Buffer<float> output(n * n);

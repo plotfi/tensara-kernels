@@ -97,6 +97,7 @@ with Ninja, builds the harnesses, and runs them — whole set or one kernel:
 ```bash
 ./run-bench.sh                # build + run every implemented harness (timing table, slowest first)
 ./run-bench.sh huber-loss     # build + run one harness (full output)
+./run-bench.sh -B [kernel]    # BENCHMARK MODE: per-kernel sizes that are compute/BW-bound
 ./run-bench.sh -l             # list harnesses (stub = not implemented)
 ./run-bench.sh -b [kernel]    # build only, don't run
 ./run-bench.sh -A             # in the all-run, also run unimplemented stubs
@@ -104,8 +105,52 @@ with Ninja, builds the harnesses, and runs them — whole set or one kernel:
 ```
 
 Unimplemented kernels run but do nothing, so the all-run skips them by default.
-Most harnesses use small default sizes, so many times sit near the kernel-launch
-floor (~0.002 ms); bump `n` in a harness to make its number bandwidth-bound.
+
+**`-B` (benchmark mode)** picks a sensible size for *each* kernel so it lands in a
+compute- or bandwidth-bound regime instead of the launch-latency floor — ideal
+for iterating on optimizations. It sizes memory-bound kernels to tens of millions
+of elements, matmuls to ~2K dims (O(n³)), and images/conv to a few thousand per
+side. Any `TENSOR_*` you set yourself still overrides the profile. Example:
+
+```
+$ ./run-bench.sh -B          # slowest-first, at meaningful sizes
+  int8-weight-gemm      196.10 ms
+  matmul-swish-scaling   18.44 ms
+  vector-addition         1.74 ms   (~460 GB/s)
+  relu                    1.21 ms
+  ...
+```
+
+(The `sum-dim`/`argmax`/… reductions size via a fixed shape array and are stubs,
+so they stay small until implemented — see `bench_profile` in the script.)
+
+### Scaling harness sizes for bandwidth-bound benchmarking
+
+Harnesses default to small sizes, so an unscaled run mostly measures kernel-launch
+latency. Two env vars scale the input tensors up so you hit memory bandwidth /
+throughput instead (read once, at harness start):
+
+```bash
+TENSOR_SCALE=16384 ./run-bench.sh vector-addition   # multiply every size dim by 16384
+TENSOR_N=64m ./run-bench.sh vector-addition          # set the N dim absolutely (64*1024^2)
+TENSOR_M=8192 TENSOR_N=8192 TENSOR_K=8192 ./run-bench.sh matrix-multiplication
+./run-bench.sh relu                                  # no env → compiled-in defaults, unchanged
+```
+
+- **`TENSOR_SCALE=<k>`** multiplies *every* size dimension by `k`.
+- **`TENSOR_<DIM>=<n>`** sets one dimension absolutely (`TENSOR_N`, `TENSOR_M`,
+  `TENSOR_K`, `TENSOR_H`, `TENSOR_W`, `TENSOR_B`, …) and beats `TENSOR_SCALE` for
+  that dim. Values accept a `k`/`m`/`g` suffix (1024-based), e.g. `16m`, `4k`.
+- Structural params (stride, padding, kernel window, quant group size, reduction
+  dim) are **never** scaled — only tensor sizes.
+- **Caveat:** `TENSOR_SCALE` multiplies *each* dim, so a multi-dim kernel grows
+  super-linearly — a 2-D elementwise (`n×m`) grows as `SCALE²`, a matmul (`m·n·k`)
+  as `SCALE³`. For those, prefer per-dim `TENSOR_*` overrides (or a small SCALE)
+  to avoid OOM. `TENSOR_SCALE` is ideal for the genuinely 1-D bandwidth kernels.
+
+Example — `vector-addition` at `TENSOR_SCALE=16384` (n≈16.7M) moves ~200 MB in
+~0.45 ms ≈ 450 GB/s, i.e. real DRAM bandwidth instead of the ~0.002 ms launch
+floor.
 
 ## Cross-platform (CUDA / Metal)
 

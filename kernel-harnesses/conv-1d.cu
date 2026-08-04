@@ -5,7 +5,7 @@ extern "C" void solution(const float* A, const float* B, float* C, size_t N, siz
 int main() {
     tensor::begin("conv-1d");
 
-    size_t N = 1024;
+    size_t N = tensor::bench_size("N", 1024);
     size_t K = 5;
 
     tensor::Buffer<float> A(N);

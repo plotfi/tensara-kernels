@@ -5,9 +5,9 @@ extern "C" void solution(const float* image, int num_bins, float* histogram, siz
 int main() {
     tensor::begin("histogram");
 
-    int num_bins = 256;
-    size_t height = 64;
-    size_t width = 64;
+    int num_bins = tensor::bench_size("NUM_BINS", 256);
+    size_t height = tensor::bench_size("HEIGHT", 64);
+    size_t width = tensor::bench_size("WIDTH", 64);
 
     tensor::Buffer<float> image(height * width);
     tensor::Buffer<float> histogram(num_bins);

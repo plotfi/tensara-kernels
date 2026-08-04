@@ -9,7 +9,7 @@ int main() {
     int stride = 1;
     int padding = 1;
     int dilation = 1;
-    size_t H = 1024;
+    size_t H = tensor::bench_size("H", 1024);
 
     tensor::Buffer<float> input(H);
     tensor::Buffer<float> output(H);

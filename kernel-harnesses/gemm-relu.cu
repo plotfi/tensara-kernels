@@ -5,9 +5,9 @@ extern "C" void solution(const float* A, const float* W, const float* b, float* 
 int main() {
     tensor::begin("gemm-relu");
 
-    size_t B = 8;
-    size_t N = 64;
-    size_t M = 32;
+    size_t B = tensor::bench_size("B", 8);
+    size_t N = tensor::bench_size("N", 64);
+    size_t M = tensor::bench_size("M", 32);
 
     tensor::Buffer<float> A(B * N);
     tensor::Buffer<float> W(M * N);

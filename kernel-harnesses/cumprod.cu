@@ -5,7 +5,7 @@ extern "C" void solution(const float* input, float* output, size_t N);
 int main() {
     tensor::begin("cumprod");
 
-    size_t N = 1024;
+    size_t N = tensor::bench_size("N", 1024);
 
     tensor::Buffer<float> input(N);
     tensor::Buffer<float> output(N);

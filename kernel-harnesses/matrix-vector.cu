@@ -5,8 +5,8 @@ extern "C" void solution(const float* input_a, const float* input_b, float* outp
 int main() {
     tensor::begin("matrix-vector");
 
-    size_t m = 64;
-    size_t k = 64;
+    size_t m = tensor::bench_size("M", 64);
+    size_t k = tensor::bench_size("K", 64);
 
     tensor::Buffer<float> input_a(m * k);
     tensor::Buffer<float> input_b(k);
