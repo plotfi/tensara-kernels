@@ -9,7 +9,7 @@ extern "C" void solution(const float* input, const float* weight, float* output,
 int main() {
     tensor::begin("conv1d-maxpool1d");
 
-    size_t N = 1024;   // input length
+    size_t N = tensor::bench_size("N", 1024);   // input length
     size_t K = 5;      // conv kernel size
     int kernel_size = 3, stride = 2, padding = 1, dilation = 1;   // pool params
 

@@ -97,6 +97,7 @@ with Ninja, builds the harnesses, and runs them — whole set or one kernel:
 ```bash
 ./run-bench.sh                # build + run every implemented harness (timing table, slowest first)
 ./run-bench.sh huber-loss     # build + run one harness (full output)
+./run-bench.sh -B [kernel]    # BENCHMARK MODE: per-kernel sizes that are compute/BW-bound
 ./run-bench.sh -l             # list harnesses (stub = not implemented)
 ./run-bench.sh -b [kernel]    # build only, don't run
 ./run-bench.sh -A             # in the all-run, also run unimplemented stubs
@@ -104,6 +105,24 @@ with Ninja, builds the harnesses, and runs them — whole set or one kernel:
 ```
 
 Unimplemented kernels run but do nothing, so the all-run skips them by default.
+
+**`-B` (benchmark mode)** picks a sensible size for *each* kernel so it lands in a
+compute- or bandwidth-bound regime instead of the launch-latency floor — ideal
+for iterating on optimizations. It sizes memory-bound kernels to tens of millions
+of elements, matmuls to ~2K dims (O(n³)), and images/conv to a few thousand per
+side. Any `TENSOR_*` you set yourself still overrides the profile. Example:
+
+```
+$ ./run-bench.sh -B          # slowest-first, at meaningful sizes
+  int8-weight-gemm      196.10 ms
+  matmul-swish-scaling   18.44 ms
+  vector-addition         1.74 ms   (~460 GB/s)
+  relu                    1.21 ms
+  ...
+```
+
+(The `sum-dim`/`argmax`/… reductions size via a fixed shape array and are stubs,
+so they stay small until implemented — see `bench_profile` in the script.)
 
 ### Scaling harness sizes for bandwidth-bound benchmarking
 
