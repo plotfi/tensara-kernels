@@ -68,9 +68,13 @@ fi
 
 # ---- build -----------------------------------------------------------------
 if [[ -n "$KERNEL" ]]; then
-    target="test-$KERNEL"
-    echo ">> building $target"
-    cmake --build "$BUILD" --target "$target"
+    echo ">> building test-$KERNEL"
+    cmake --build "$BUILD" --target "test-$KERNEL"
+    # Also build the benchmark harness so a single-kernel run shows its timing.
+    if [[ -f "kernel-harnesses/$KERNEL.cu" ]]; then
+        echo ">> building harness $KERNEL"
+        cmake --build "$BUILD" --target "$KERNEL"
+    fi
 else
     echo ">> building all tests"
     cmake --build "$BUILD" --target tests
@@ -80,8 +84,16 @@ fi
 
 # ---- run -------------------------------------------------------------------
 if [[ -n "$KERNEL" ]]; then
-    echo ">> running $KERNEL"
-    ctest --test-dir "$BUILD" -R "^${KERNEL}\$" --output-on-failure
+    echo ">> running test $KERNEL"
+    rc=0
+    ctest --test-dir "$BUILD" -R "^${KERNEL}\$" --output-on-failure || rc=$?
+    # Then the benchmark harness output (Avg kernel time + preview).
+    if [[ -x "$BUILD/bin/$KERNEL.exe" ]]; then
+        echo
+        echo ">> benchmark:"
+        "./$BUILD/bin/$KERNEL.exe" || true
+    fi
+    exit $rc
 else
     echo ">> running suite"
     ctest --test-dir "$BUILD" -j --output-on-failure
