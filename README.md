@@ -11,6 +11,8 @@ solutions-metal/               # Per kernel: <k>.cpp + <k>.metal (Metal wrapper 
 kernel-implementation/         # Shared: harness.cuh (+ detail/ backends), reduction.cuh, activation.cuh
 tests/                         # Correctness tests (CPU reference vs. GPU)
 CMakeLists.txt                 # Build system (CUDA harnesses + tests via CTest; Metal on macOS)
+run-tests.sh                   # Build (CMake+Ninja) + run tests — whole suite or one kernel
+run-bench.sh                   # Build (CMake+Ninja) + run benchmark harnesses — all or one kernel
 build_metal.sh                 # Legacy standalone Metal build (macOS + metal-cpp)
 run_all.sh                     # Run every built binary
 ```
@@ -89,6 +91,22 @@ Output output (first 10): 0.000000 0.000000 0.381271 ...
 Done.
 ```
 
+**Benchmark via `run-bench.sh` (easiest):** a wrapper that configures the build
+with Ninja, builds the harnesses, and runs them — whole set or one kernel:
+
+```bash
+./run-bench.sh                # build + run every implemented harness (timing table, slowest first)
+./run-bench.sh huber-loss     # build + run one harness (full output)
+./run-bench.sh -l             # list harnesses (stub = not implemented)
+./run-bench.sh -b [kernel]    # build only, don't run
+./run-bench.sh -A             # in the all-run, also run unimplemented stubs
+./run-bench.sh -c / -a 89     # clean-reconfigure / set CUDA arch
+```
+
+Unimplemented kernels run but do nothing, so the all-run skips them by default.
+Most harnesses use small default sizes, so many times sit near the kernel-launch
+floor (~0.002 ms); bump `n` in a harness to make its number bandwidth-bound.
+
 ## Cross-platform (CUDA / Metal)
 
 `kernel-implementation/harness.cuh` is a cross-platform tensor/harness library
@@ -139,7 +157,35 @@ nonzero on failure. `tests/test_utils.cuh` holds the shared device-buffer and
 Every test links `solutions-cuda/<kernel>.cu` — the same file the harness uses — so a
 test runs your real code, whatever's in that file.
 
-**Via CTest (preferred):** tests are registered with CMake. Tests whose solution
+**Via `run-tests.sh` (easiest):** a wrapper that configures the build with the
+Ninja generator, builds the tests, and runs them — whole suite or one kernel:
+
+```bash
+./run-tests.sh                # build + run the whole suite
+./run-tests.sh huber-loss     # build + run just one kernel's test + its benchmark
+./run-tests.sh -l             # list test names (Disabled = stub solution)
+./run-tests.sh -b [kernel]    # build only, don't run
+./run-tests.sh -c             # clean-reconfigure (rm -rf build) first
+./run-tests.sh -a 89          # override CMAKE_CUDA_ARCHITECTURES (default native)
+```
+
+It configures `./build` on first run (and wipes a stale non-Ninja `build/`), so
+you don't have to run `cmake` yourself.
+
+A single-kernel run prints the correctness result **and** the benchmark output:
+
+```
+>> running test huber-loss
+100% tests passed, 0 tests failed out of 1
+
+>> benchmark:
+=== huber-loss ===
+Avg kernel time: 0.0039 ms (over 100 iters)
+Output output (first 10): 33.799072
+Done.
+```
+
+**Via CTest directly:** tests are registered with CMake. Tests whose solution
 is still a stub are marked `DISABLED`, so a run is green by default and only
 turns red on a real regression:
 
