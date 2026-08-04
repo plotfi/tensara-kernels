@@ -12,6 +12,7 @@ kernel-implementation/         # Shared: harness.cuh (+ detail/ backends), reduc
 tests/                         # Correctness tests (CPU reference vs. GPU)
 CMakeLists.txt                 # Build system (CUDA harnesses + tests via CTest; Metal on macOS)
 run-tests.sh                   # Build (CMake+Ninja) + run tests — whole suite or one kernel
+run-bench.sh                   # Build (CMake+Ninja) + run benchmark harnesses — all or one kernel
 build_metal.sh                 # Legacy standalone Metal build (macOS + metal-cpp)
 run_all.sh                     # Run every built binary
 ```
@@ -89,6 +90,22 @@ Avg kernel time: 0.0015 ms (over 100 iters)
 Output output (first 10): 0.000000 0.000000 0.381271 ...
 Done.
 ```
+
+**Benchmark via `run-bench.sh` (easiest):** a wrapper that configures the build
+with Ninja, builds the harnesses, and runs them — whole set or one kernel:
+
+```bash
+./run-bench.sh                # build + run every implemented harness (timing table, slowest first)
+./run-bench.sh huber-loss     # build + run one harness (full output)
+./run-bench.sh -l             # list harnesses (stub = not implemented)
+./run-bench.sh -b [kernel]    # build only, don't run
+./run-bench.sh -A             # in the all-run, also run unimplemented stubs
+./run-bench.sh -c / -a 89     # clean-reconfigure / set CUDA arch
+```
+
+Unimplemented kernels run but do nothing, so the all-run skips them by default.
+Most harnesses use small default sizes, so many times sit near the kernel-launch
+floor (~0.002 ms); bump `n` in a harness to make its number bandwidth-bound.
 
 ## Cross-platform (CUDA / Metal)
 
