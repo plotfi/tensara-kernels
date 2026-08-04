@@ -17,22 +17,30 @@
 # run_all.sh still works).
 
 cmake_minimum_required(VERSION 3.24)
-project(tensara_kernels LANGUAGES CXX CUDA)
+project(kernel_benchmarks LANGUAGES CXX)
 
 # --- standards / flags (match the old NVCCFLAGS: -O2 -std=c++17) -------------
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-# The old Makefile passed no -arch (nvcc default). These are perf kernels, so
-# default to the building machine's GPU; override with -DCMAKE_CUDA_ARCHITECTURES=89.
-if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES native)
+# --- optional CUDA support ---------------------------------------------------
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES native)
+    endif()
+    set(HAVE_CUDA TRUE)
+else()
+    message(STATUS "CUDA not found — CUDA harnesses and tests will be skipped")
+    set(HAVE_CUDA FALSE)
 endif()
 
 # Binaries -> build/bin, with a .exe suffix so run_all.sh's glob keeps working.
@@ -59,6 +67,7 @@ endfunction()
 # ============================================================================
 # CUDA benchmark harnesses:  kernel-harnesses/<k>.cu + solutions-cuda/<k>.cu
 # ============================================================================
+if(HAVE_CUDA)
 add_custom_target(harnesses COMMENT "All CUDA benchmark harnesses")
 
 file(GLOB HARNESS_SRCS CONFIGURE_DEPENDS ${REPO}/kernel-harnesses/*.cu)
@@ -74,11 +83,12 @@ foreach(h ${HARNESS_SRCS})
     add_dependencies(harnesses ${k})
 endforeach()
 
+enable_testing()
+
 # ============================================================================
 # Correctness tests (CTest). Each executable is a test source + the kernel's
 # solutions-cuda/<k>.cu, some compiled with a -D flag. Test name = kernel name.
 # ============================================================================
-enable_testing()
 add_custom_target(tests COMMENT "All CUDA correctness tests")
 set(TDIR ${REPO}/tests)
 
@@ -151,6 +161,8 @@ foreach(ts ${TEST_SRCS})
     string(REGEX REPLACE "^test-" "" kernel ${base})
     add_kernel_test(${kernel} ${base}.cu)
 endforeach()
+
+endif() # HAVE_CUDA
 
 # ============================================================================
 # Metal backend (macOS only). Faithful port of build_metal.sh: compile the
