@@ -11,6 +11,7 @@ solutions-metal/               # Per kernel: <k>.cpp + <k>.metal (Metal wrapper 
 kernel-implementation/         # Shared: harness.cuh (+ detail/ backends), reduction.cuh, activation.cuh
 tests/                         # Correctness tests (CPU reference vs. GPU)
 CMakeLists.txt                 # Build system (CUDA harnesses + tests via CTest; Metal on macOS)
+run-tests.sh                   # Build (CMake+Ninja) + run tests — whole suite or one kernel
 build_metal.sh                 # Legacy standalone Metal build (macOS + metal-cpp)
 run_all.sh                     # Run every built binary
 ```
@@ -139,7 +140,22 @@ nonzero on failure. `tests/test_utils.cuh` holds the shared device-buffer and
 Every test links `solutions-cuda/<kernel>.cu` — the same file the harness uses — so a
 test runs your real code, whatever's in that file.
 
-**Via CTest (preferred):** tests are registered with CMake. Tests whose solution
+**Via `run-tests.sh` (easiest):** a wrapper that configures the build with the
+Ninja generator, builds the tests, and runs them — whole suite or one kernel:
+
+```bash
+./run-tests.sh                # build + run the whole suite
+./run-tests.sh huber-loss     # build + run just one kernel's test
+./run-tests.sh -l             # list test names (Disabled = stub solution)
+./run-tests.sh -b [kernel]    # build only, don't run
+./run-tests.sh -c             # clean-reconfigure (rm -rf build) first
+./run-tests.sh -a 89          # override CMAKE_CUDA_ARCHITECTURES (default native)
+```
+
+It configures `./build` on first run (and wipes a stale non-Ninja `build/`), so
+you don't have to run `cmake` yourself.
+
+**Via CTest directly:** tests are registered with CMake. Tests whose solution
 is still a stub are marked `DISABLED`, so a run is green by default and only
 turns red on a real regression:
 
