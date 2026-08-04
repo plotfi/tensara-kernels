@@ -5,9 +5,9 @@ extern "C" void solution(const uint8_t* q_a, const uint8_t* scale_a, const uint8
 int main() {
     tensor::begin("mxfp4-gemm");
 
-    size_t m = 64;
-    size_t n = 64;
-    size_t k = 64;
+    size_t m = tensor::bench_size("M", 64);
+    size_t n = tensor::bench_size("N", 64);
+    size_t k = tensor::bench_size("K", 64);
 
     tensor::Buffer<uint8_t> q_a(m * k / 2);
     tensor::Buffer<uint8_t> scale_a(m * (k / 32));

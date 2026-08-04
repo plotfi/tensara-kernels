@@ -9,8 +9,8 @@ int main() {
     int stride = 1;
     int padding = 1;
     int dilation = 1;
-    size_t H = 32;
-    size_t W = 32;
+    size_t H = tensor::bench_size("H", 32);
+    size_t W = tensor::bench_size("W", 32);
 
     tensor::Buffer<float> input(H * W);
     tensor::Buffer<float> output(H * W);

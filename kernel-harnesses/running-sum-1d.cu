@@ -6,7 +6,7 @@ int main() {
     tensor::begin("running-sum-1d");
 
     size_t W = 5;
-    size_t N = 1024;
+    size_t N = tensor::bench_size("N", 1024);
 
     tensor::Buffer<float> input(N);
     tensor::Buffer<float> output(N);

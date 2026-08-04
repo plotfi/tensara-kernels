@@ -5,8 +5,8 @@ extern "C" void solution(const float* a, uint8_t* q, uint8_t* scale, size_t m, s
 int main() {
     tensor::begin("mxfp4-quantize");
 
-    size_t m = 64;
-    size_t k = 64;
+    size_t m = tensor::bench_size("M", 64);
+    size_t k = tensor::bench_size("K", 64);
 
     tensor::Buffer<float> a(m * k);
     tensor::Buffer<uint8_t> q(m * k / 2);

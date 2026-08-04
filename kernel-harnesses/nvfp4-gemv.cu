@@ -7,8 +7,8 @@ int main() {
 
     float sf_g_a = 1.0f;
     float sf_g_x = 1.0f;
-    size_t m = 64;
-    size_t k = 64;
+    size_t m = tensor::bench_size("M", 64);
+    size_t k = tensor::bench_size("K", 64);
 
     tensor::Buffer<uint8_t> q_a(m * k / 2);
     tensor::Buffer<__nv_fp8_e4m3> scale_a(m * (k / 16));

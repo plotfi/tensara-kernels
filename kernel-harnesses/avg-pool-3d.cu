@@ -8,9 +8,9 @@ int main() {
     int kernel_size = 3;
     int stride = 1;
     int padding = 1;
-    size_t H = 16;
-    size_t W = 16;
-    size_t D = 16;
+    size_t H = tensor::bench_size("H", 16);
+    size_t W = tensor::bench_size("W", 16);
+    size_t D = tensor::bench_size("D", 16);
 
     tensor::Buffer<float> input(H * W * D);
     tensor::Buffer<float> output(H * W * D);

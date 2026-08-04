@@ -6,8 +6,8 @@ int main() {
     tensor::begin("box-blur");
 
     int kernel_size = 3;
-    size_t height = 64;
-    size_t width = 64;
+    size_t height = tensor::bench_size("HEIGHT", 64);
+    size_t width = tensor::bench_size("WIDTH", 64);
 
     tensor::Buffer<float> input_image(height * width);
     tensor::Buffer<float> output_image(height * width);

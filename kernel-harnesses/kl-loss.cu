@@ -5,7 +5,7 @@ extern "C" void solution(const float* predictions, const float* targets, float* 
 int main() {
     tensor::begin("kl-loss");
 
-    size_t n = 1024;
+    size_t n = tensor::bench_size("N", 1024);
 
     tensor::Buffer<float> predictions(n);
     tensor::Buffer<float> targets(n);

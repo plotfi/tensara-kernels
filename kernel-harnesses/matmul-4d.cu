@@ -5,11 +5,11 @@ extern "C" void solution(const float* A, const float* B, float* C, size_t b, siz
 int main() {
     tensor::begin("matmul-4d");
 
-    size_t b = 2;
-    size_t i = 4;
-    size_t j = 32;
-    size_t l = 32;
-    size_t k = 16;
+    size_t b = tensor::bench_size("B", 2);
+    size_t i = tensor::bench_size("I", 4);
+    size_t j = tensor::bench_size("J", 32);
+    size_t l = tensor::bench_size("L", 32);
+    size_t k = tensor::bench_size("K", 16);
 
     tensor::Buffer<float> A(b * i * j * k);
     tensor::Buffer<float> B(k * l);

@@ -5,8 +5,8 @@ extern "C" void solution(const float* A, const float* B, float* C, size_t H, siz
 int main() {
     tensor::begin("conv-2d");
 
-    size_t H = 64;
-    size_t W = 64;
+    size_t H = tensor::bench_size("H", 64);
+    size_t W = tensor::bench_size("W", 64);
     size_t Kh = 3;
     size_t Kw = 3;
 

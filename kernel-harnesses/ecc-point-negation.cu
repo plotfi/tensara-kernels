@@ -6,7 +6,7 @@ int main() {
     tensor::begin("ecc-point-negation");
 
     uint64_t p = 18446744073709551557ULL;
-    size_t n = 1024;
+    size_t n = tensor::bench_size("N", 1024);
 
     tensor::Buffer<uint64_t> xs(n);
     tensor::Buffer<uint64_t> ys(n);

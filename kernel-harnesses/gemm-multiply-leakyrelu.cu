@@ -6,9 +6,9 @@ int main() {
     tensor::begin("gemm-multiply-leakyrelu");
 
     float alpha = 0.01f;
-    size_t M = 64;
-    size_t N = 64;
-    size_t K = 64;
+    size_t M = tensor::bench_size("M", 64);
+    size_t N = tensor::bench_size("N", 64);
+    size_t K = tensor::bench_size("K", 64);
 
     tensor::Buffer<float> A(M * K);
     tensor::Buffer<float> B(K * N);

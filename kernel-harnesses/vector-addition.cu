@@ -5,7 +5,7 @@ extern "C" void solution(const float* d_input1, const float* d_input2, float* d_
 int main() {
     tensor::begin("vector-addition");
 
-    size_t n = 1024;
+    size_t n = tensor::bench_size("N", 1024);
 
     tensor::Buffer<float> d_input1(n);
     tensor::Buffer<float> d_input2(n);

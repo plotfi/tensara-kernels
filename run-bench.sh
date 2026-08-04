@@ -14,6 +14,11 @@
 #   ./run-bench.sh -a 89 ...       # set CMAKE_CUDA_ARCHITECTURES (default: native)
 #   ./run-bench.sh -c ...          # clean-reconfigure first (rm -rf build)
 #
+# Size knobs (read by the harnesses; just pass them in the environment):
+#   TENSOR_SCALE=<k>   multiply every input size dimension by k
+#   TENSOR_<DIM>=<n>   set one dim absolutely (TENSOR_N, TENSOR_M, TENSOR_K, ...)
+#   e.g.  TENSOR_SCALE=16384 ./run-bench.sh vector-addition   # bandwidth-bound
+#
 # Notes:
 #   * Uses the Ninja generator; configures ./build once, reconfigures when
 #     CMakeLists.txt changes.

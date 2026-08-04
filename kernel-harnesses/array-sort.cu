@@ -5,7 +5,7 @@ extern "C" void solution(const int* a, int* b, size_t n);
 int main() {
     tensor::begin("array-sort");
 
-    size_t n = 1024;
+    size_t n = tensor::bench_size("N", 1024);
 
     tensor::Buffer<int> a(n);
     tensor::Buffer<int> b(n);

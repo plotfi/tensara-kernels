@@ -5,10 +5,10 @@ extern "C" void solution(const float* X, const float* gamma, const float* beta, 
 int main() {
     tensor::begin("layer-norm");
 
-    size_t B = 2;
-    size_t F = 4;
-    size_t D1 = 8;
-    size_t D2 = 8;
+    size_t B = tensor::bench_size("B", 2);
+    size_t F = tensor::bench_size("F", 4);
+    size_t D1 = tensor::bench_size("D1", 8);
+    size_t D2 = tensor::bench_size("D2", 8);
 
     tensor::Buffer<float> X(B * F * D1 * D2);
     tensor::Buffer<float> gamma(F * D1 * D2);

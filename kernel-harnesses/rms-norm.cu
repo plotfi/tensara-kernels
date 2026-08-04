@@ -5,8 +5,8 @@ extern "C" void solution(const float* X, float* Y, size_t B, size_t N);
 int main() {
     tensor::begin("rms-norm");
 
-    size_t B = 8;
-    size_t N = 64;
+    size_t B = tensor::bench_size("B", 8);
+    size_t N = tensor::bench_size("N", 64);
 
     tensor::Buffer<float> X(B * N);
     tensor::Buffer<float> Y(B * N);

@@ -5,8 +5,8 @@ extern "C" void solution(const float* input_matrix, size_t n, float* output_matr
 int main() {
     tensor::begin("matrix-power");
 
-    size_t n = 3;
-    size_t size = 8;
+    size_t n = tensor::bench_size("N", 3);
+    size_t size = tensor::bench_size("SIZE", 8);
 
     tensor::Buffer<float> input_matrix(size * size);
     tensor::Buffer<float> output_matrix(size * size);

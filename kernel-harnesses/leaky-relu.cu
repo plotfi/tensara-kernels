@@ -6,8 +6,8 @@ int main() {
     tensor::begin("leaky-relu");
 
     float alpha = 0.01f;
-    size_t n = 64;
-    size_t m = 64;
+    size_t n = tensor::bench_size("N", 64);
+    size_t m = tensor::bench_size("M", 64);
 
     tensor::Buffer<float> input(n * m);
     tensor::Buffer<float> output(n * m);

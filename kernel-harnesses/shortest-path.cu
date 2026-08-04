@@ -6,7 +6,7 @@ int main() {
     tensor::begin("shortest-path");
 
     int source = 0;
-    size_t n = 64;
+    size_t n = tensor::bench_size("N", 64);
 
     tensor::Buffer<float> d_adj_matrix(n * n);
     tensor::Buffer<float> d_distances(n);

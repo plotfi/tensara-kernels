@@ -6,8 +6,8 @@ int main() {
     tensor::begin("nvfp4-quantize");
 
     float sf_g = 1.0f;
-    size_t m = 64;
-    size_t k = 64;
+    size_t m = tensor::bench_size("M", 64);
+    size_t k = tensor::bench_size("K", 64);
 
     tensor::Buffer<half> a(m * k);
     tensor::Buffer<uint8_t> q(m * k / 2);

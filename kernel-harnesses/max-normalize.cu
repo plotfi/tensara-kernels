@@ -5,8 +5,8 @@ extern "C" void solution(const float* X, float* Y, size_t B, size_t D);
 int main() {
     tensor::begin("max-normalize");
 
-    size_t B = 8;
-    size_t D = 64;
+    size_t B = tensor::bench_size("B", 8);
+    size_t D = tensor::bench_size("D", 64);
 
     tensor::Buffer<float> X(B * D);
     tensor::Buffer<float> Y(B * D);

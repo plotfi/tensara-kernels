@@ -9,7 +9,9 @@ extern "C" void solution(const float* A, const int8_t* Wq, const float* scale,
 int main() {
     tensor::begin("int8-weight-gemm");
 
-    size_t M = 64, N = 64, K = 256;
+    size_t M = tensor::bench_size("M", 64);
+    size_t N = tensor::bench_size("N", 64);
+    size_t K = tensor::bench_size("K", 256);
     int group_size = 64;                 // K/group_size = 4 groups per output row
 
     tensor::Buffer<float>  A(M * K);

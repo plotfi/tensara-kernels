@@ -5,8 +5,8 @@ extern "C" void solution(const float* diagonal_a, const float* input_b, float* o
 int main() {
     tensor::begin("diagonal-matmul");
 
-    size_t n = 64;
-    size_t m = 64;
+    size_t n = tensor::bench_size("N", 64);
+    size_t m = tensor::bench_size("M", 64);
 
     tensor::Buffer<float> diagonal_a(n);
     tensor::Buffer<float> input_b(n * m);

@@ -5,9 +5,9 @@ extern "C" void solution(const float* A, const float* B, float* output, size_t M
 int main() {
     tensor::begin("matmul-sigmoid-sum");
 
-    size_t M = 64;
-    size_t N = 64;
-    size_t K = 64;
+    size_t M = tensor::bench_size("M", 64);
+    size_t N = tensor::bench_size("N", 64);
+    size_t K = tensor::bench_size("K", 64);
 
     tensor::Buffer<float> A(M * K);
     tensor::Buffer<float> B(K * N);

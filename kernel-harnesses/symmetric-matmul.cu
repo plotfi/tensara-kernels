@@ -5,7 +5,7 @@ extern "C" void solution(const float* input_a, const float* input_b, float* outp
 int main() {
     tensor::begin("symmetric-matmul");
 
-    size_t n = 64;
+    size_t n = tensor::bench_size("N", 64);
 
     tensor::Buffer<float> input_a(n * n);
     tensor::Buffer<float> input_b(n * n);

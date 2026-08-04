@@ -26,6 +26,58 @@ inline void end() {
     printf("Done.\n");
 }
 
+// ---- env-controlled benchmark sizes -------------------------------------
+// Harnesses default to small sizes, so an unscaled run mostly measures kernel-
+// launch latency. Two env knobs let you scale up to hit bandwidth/throughput:
+//
+//   TENSOR_SCALE=<k>   multiply EVERY size dimension by k (default 1)
+//   TENSOR_<DIM>=<n>   set one dimension absolutely (overrides SCALE for it),
+//                      e.g. TENSOR_N, TENSOR_M, TENSOR_K, TENSOR_WIDTH, ...
+//
+// Values accept a plain integer or a k/m/g suffix (1024-based), e.g. 16m, 4k.
+// With no env set, sizes are exactly the compiled-in defaults (zero change).
+// Structural params (stride, padding, kernel_size, dilation, dim) are never
+// routed through this — only tensor sizes are.
+inline bool parse_size(const char* s, size_t& out) {
+    if (!s || !*s) return false;
+    char* endp = nullptr;
+    unsigned long long v = strtoull(s, &endp, 10);
+    if (endp == s) return false;
+    size_t mult = 1;
+    switch (*endp) {
+        case 'k': case 'K': mult = 1024ull; endp++; break;
+        case 'm': case 'M': mult = 1024ull * 1024; endp++; break;
+        case 'g': case 'G': mult = 1024ull * 1024 * 1024; endp++; break;
+        case '\0': break;
+        default: return false;   // trailing garbage
+    }
+    if (*endp != '\0') return false;
+    out = static_cast<size_t>(v) * mult;
+    return true;
+}
+
+// Global multiplier from TENSOR_SCALE (default 1). Read once.
+inline size_t size_scale() {
+    static const size_t s = [] {
+        size_t v;
+        if (const char* e = std::getenv("TENSOR_SCALE"); e && parse_size(e, v) && v > 0)
+            return v;
+        return static_cast<size_t>(1);
+    }();
+    return s;
+}
+
+// A benchmark size dimension. `dim` names the env override, e.g. bench_size("N",
+// 1024) is settable with TENSOR_N=... (absolute) or scaled by TENSOR_SCALE.
+inline size_t bench_size(const char* dim, size_t fallback) {
+    char var[64];
+    snprintf(var, sizeof(var), "TENSOR_%s", dim);
+    size_t v;
+    if (const char* e = std::getenv(var); e && parse_size(e, v) && v > 0)
+        return v;                          // absolute per-dim override
+    return fallback * size_scale();          // else the default, globally scaled
+}
+
 // ---- per-element random fill, dispatched by type ------------------------
 inline void fill_random(float* p, size_t n) {
     for (size_t i = 0; i < n; i++)

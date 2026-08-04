@@ -5,7 +5,7 @@ extern "C" void solution(const uint32_t* d_input1, const uint32_t* d_input2, uin
 int main() {
     tensor::begin("poly-multiply-ff");
 
-    size_t n = 256;
+    size_t n = tensor::bench_size("N", 256);
 
     tensor::Buffer<uint32_t> d_input1(n);
     tensor::Buffer<uint32_t> d_input2(n);

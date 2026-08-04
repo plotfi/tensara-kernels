@@ -6,9 +6,9 @@ int main() {
     tensor::begin("matmul-swish");
 
     float scaling_factor = 1.0f;
-    size_t batch_size = 8;
-    size_t in_features = 64;
-    size_t out_features = 32;
+    size_t batch_size = tensor::bench_size("BATCH_SIZE", 8);
+    size_t in_features = tensor::bench_size("IN_FEATURES", 64);
+    size_t out_features = tensor::bench_size("OUT_FEATURES", 32);
 
     tensor::Buffer<float> input_matrix(batch_size * in_features);
     tensor::Buffer<float> weight_matrix(out_features * in_features);

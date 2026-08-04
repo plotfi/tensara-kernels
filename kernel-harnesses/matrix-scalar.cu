@@ -6,7 +6,7 @@ int main() {
     tensor::begin("matrix-scalar");
 
     float scalar = 2.5f;
-    size_t n = 64;
+    size_t n = tensor::bench_size("N", 64);
 
     tensor::Buffer<float> input_matrix(n * n);
     tensor::Buffer<float> output_matrix(n * n);

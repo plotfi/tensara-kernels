@@ -5,9 +5,9 @@ extern "C" void solution(const float* rgb_image, float* grayscale_output, size_t
 int main() {
     tensor::begin("grayscale");
 
-    size_t height = 64;
-    size_t width = 64;
-    size_t channels = 3;
+    size_t height = tensor::bench_size("HEIGHT", 64);
+    size_t width = tensor::bench_size("WIDTH", 64);
+    size_t channels = tensor::bench_size("CHANNELS", 3);
 
     tensor::Buffer<float> rgb_image(height * width * channels);
     tensor::Buffer<float> grayscale_output(height * width);
