@@ -336,12 +336,26 @@ Then use the `-T` flag on either runner:
 ./run-bench.sh  -T -l                 # list Triton solutions
 ```
 
-CUDA-vs-Triton is then a one-liner comparison at matched sizes:
+**`-C` / `--compare`** runs each kernel on *both* backends and prints them side by
+side with a speedup (CUDA/Triton). Add `-B` for meaningful sizes; pass a kernel to
+compare just one:
 
+```bash
+./run-bench.sh -C -B            # all kernels that have both a CUDA + Triton solution
+./run-bench.sh -C -B relu       # one kernel
 ```
-vector-addition   CUDA 1.75 ms   Triton 1.85 ms
-relu              CUDA 1.21 ms   Triton 1.23 ms    # both bandwidth-bound
 ```
+  KERNEL                      CUDA (ms)  TRITON (ms)    SPEEDUP
+  int8-weight-gemm             196.0988       0.8773    223.53x   # naive CUDA vs tl.dot
+  matmul-swish-scaling          18.4543       0.8512     21.68x
+  gemm-relu                      1.1058       0.0596     18.55x
+  conv-1d                        0.4449       0.3066      1.45x
+  relu                           1.2140       1.2371      0.98x   # both bandwidth-bound
+  ...
+```
+
+It compares only kernels that have both a Triton solution and a non-stub CUDA
+solution.
 
 A `solutions-triton/<k>.py` defines its `@triton.jit` kernel, a `solution(...)`
 (same arg shape as the CUDA one), and a `main(check)` that sizes inputs via

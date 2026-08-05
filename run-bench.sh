@@ -15,6 +15,7 @@
 #   ./run-bench.sh -B relu         # benchmark-size a single kernel
 #   ./run-bench.sh -T [kernel]     # TRITON backend: run solutions-triton/*.py (needs .venv)
 #   ./run-bench.sh -T -B relu      # Triton, benchmark sizes
+#   ./run-bench.sh -C [kernel]     # COMPARE CUDA vs Triton side by side (add -B for real sizes)
 #   ./run-bench.sh -A              # in the all-run, also run unimplemented stubs
 #   ./run-bench.sh -a 89 ...       # set CMAKE_CUDA_ARCHITECTURES (default: native)
 #   ./run-bench.sh -c ...          # clean-reconfigure first (rm -rf build)
@@ -42,6 +43,7 @@ CLEAN=0
 INCLUDE_STUBS=0
 BIG=0
 TRITON=0
+COMPARE=0
 ACTION=run
 PYVENV=.venv/bin/python
 
@@ -107,9 +109,10 @@ bench_profile() {
     esac
 }
 
-# Run a harness, applying the -B profile in a subshell (user's env wins).
-run_exe() {
-    local k="$1"
+# Run kernel $1 on backend $2 (cuda|triton), applying the -B profile in a
+# subshell so the user's env still wins and vars don't leak between runs.
+run_kernel() {
+    local k="$1" backend="$2"
     (
         if [[ $BIG -eq 1 ]]; then
             for kv in $(bench_profile "$k"); do
@@ -117,13 +120,18 @@ run_exe() {
                 [[ -z "${!var:-}" ]] && export "$kv"
             done
         fi
-        if [[ $TRITON -eq 1 ]]; then
-            exec "$PYVENV" "solutions-triton/$k.py"
-        else
-            exec "./$BUILD/bin/$k.exe"
-        fi
+        if [[ "$backend" == triton ]]; then exec "$PYVENV" "solutions-triton/$k.py"
+        else exec "./$BUILD/bin/$k.exe"; fi
     )
 }
+
+# Run on the currently-selected backend (TRITON flag).
+run_exe() {
+    if [[ $TRITON -eq 1 ]]; then run_kernel "$1" triton; else run_kernel "$1" cuda; fi
+}
+
+# Extract the "Avg kernel time: X ms" number from a run's output.
+extract_ms() { grep -oiE 'Avg kernel time:[[:space:]]*[0-9.]+' | grep -oE '[0-9.]+' | head -1; }
 
 # ---- args ------------------------------------------------------------------
 KERNEL=""
@@ -136,12 +144,49 @@ while [[ $# -gt 0 ]]; do
         -A|--all-stubs) INCLUDE_STUBS=1 ;;
         -B|--big)   BIG=1 ;;
         -T|--triton) TRITON=1 ;;
+        -C|--compare) COMPARE=1 ;;
         -a|--arch)  ARCH="$2"; shift ;;
         -*)         echo "unknown option: $1" >&2; usage 1 ;;
         *)          KERNEL="$1" ;;
     esac
     shift
 done
+
+# ---- compare: run each kernel on BOTH backends, side by side ----------------
+if [[ $COMPARE -eq 1 ]]; then
+    command -v ninja >/dev/null || { echo "error: ninja not found" >&2; exit 1; }
+    [[ -x "$PYVENV" ]] || { echo "error: $PYVENV not found — create the venv (README Triton section)" >&2; exit 1; }
+    [[ $CLEAN -eq 1 ]] && rm -rf "$BUILD"
+    if [[ ! -f "$BUILD/build.ninja" ]]; then
+        cfg=(-S . -B "$BUILD" -G Ninja); [[ -n "$ARCH" ]] && cfg+=("-DCMAKE_CUDA_ARCHITECTURES=$ARCH")
+        echo ">> cmake ${cfg[*]}"; cmake "${cfg[@]}"
+    fi
+    # Kernels that have BOTH a Triton solution and a non-stub CUDA solution.
+    if [[ -n "$KERNEL" ]]; then
+        CMP=("$KERNEL")
+    else
+        mapfile -t CMP < <(for f in solutions-triton/*.py; do
+            k=$(basename "$f" .py)
+            [[ -f "kernel-harnesses/$k.cu" ]] && ! is_stub "$k" && echo "$k"
+        done | sort)
+    fi
+    echo ">> comparing ${#CMP[@]} kernel(s) on CUDA vs Triton$([[ $BIG -eq 1 ]] && echo ' (-B sizes)')"
+    printf '  %-24s %12s %12s %10s\n' "KERNEL" "CUDA (ms)" "TRITON (ms)" "SPEEDUP"
+    printf '  %-24s %12s %12s %10s\n' "------------------------" "------------" "------------" "----------"
+    for k in "${CMP[@]}"; do
+        [[ -f "solutions-triton/$k.py" ]] || { printf '  %-24s %s\n' "$k" "(no triton solution)"; continue; }
+        cmake --build "$BUILD" --target "$k" >/dev/null 2>&1 || { printf '  %-24s %s\n' "$k" "(cuda build failed)"; continue; }
+        cu=$(run_kernel "$k" cuda    2>/dev/null | extract_ms)
+        tr=$(run_kernel "$k" triton  2>/dev/null | extract_ms)
+        sp="-"
+        if [[ -n "$cu" && -n "$tr" ]]; then
+            sp=$(awk -v a="$cu" -v b="$tr" 'BEGIN{ if (b>0) printf "%.2fx", a/b; else print "-" }')
+        fi
+        printf '  %-24s %12s %12s %10s\n' "$k" "${cu:-?}" "${tr:-?}" "$sp"
+    done
+    echo ">> SPEEDUP = CUDA/Triton (>1 means Triton faster)"
+    exit 0
+fi
 
 # ---- Triton backend: no CMake/Ninja build; run Python solutions -------------
 if [[ $TRITON -eq 1 ]]; then
