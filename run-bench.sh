@@ -13,6 +13,8 @@
 #   ./run-bench.sh -B              # BENCHMARK MODE: per-kernel sizes that make each
 #                                  #   kernel compute/bandwidth-bound (not launch-bound)
 #   ./run-bench.sh -B relu         # benchmark-size a single kernel
+#   ./run-bench.sh -T [kernel]     # TRITON backend: run solutions-triton/*.py (needs .venv)
+#   ./run-bench.sh -T -B relu      # Triton, benchmark sizes
 #   ./run-bench.sh -A              # in the all-run, also run unimplemented stubs
 #   ./run-bench.sh -a 89 ...       # set CMAKE_CUDA_ARCHITECTURES (default: native)
 #   ./run-bench.sh -c ...          # clean-reconfigure first (rm -rf build)
@@ -39,7 +41,9 @@ BUILD_ONLY=0
 CLEAN=0
 INCLUDE_STUBS=0
 BIG=0
+TRITON=0
 ACTION=run
+PYVENV=.venv/bin/python
 
 usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
@@ -113,7 +117,11 @@ run_exe() {
                 [[ -z "${!var:-}" ]] && export "$kv"
             done
         fi
-        exec "./$BUILD/bin/$k.exe"
+        if [[ $TRITON -eq 1 ]]; then
+            exec "$PYVENV" "solutions-triton/$k.py"
+        else
+            exec "./$BUILD/bin/$k.exe"
+        fi
     )
 }
 
@@ -127,6 +135,7 @@ while [[ $# -gt 0 ]]; do
         -c|--clean) CLEAN=1 ;;
         -A|--all-stubs) INCLUDE_STUBS=1 ;;
         -B|--big)   BIG=1 ;;
+        -T|--triton) TRITON=1 ;;
         -a|--arch)  ARCH="$2"; shift ;;
         -*)         echo "unknown option: $1" >&2; usage 1 ;;
         *)          KERNEL="$1" ;;
@@ -134,31 +143,51 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-command -v ninja >/dev/null || { echo "error: ninja not found (install ninja-build)" >&2; exit 1; }
+# ---- Triton backend: no CMake/Ninja build; run Python solutions -------------
+if [[ $TRITON -eq 1 ]]; then
+    [[ -x "$PYVENV" ]] || { echo "error: $PYVENV not found — create the venv (see README Triton section)" >&2; exit 1; }
+    mapfile -t KERNELS < <(for f in solutions-triton/*.py; do [[ -e "$f" ]] && basename "$f" .py; done | sort)
+    if [[ "$ACTION" == list ]]; then
+        echo ">> Triton solutions (solutions-triton/*.py):"
+        printf '  %s\n' "${KERNELS[@]}"
+        exit 0
+    fi
+    if [[ -n "$KERNEL" ]]; then
+        [[ -f "solutions-triton/$KERNEL.py" ]] || { echo "no Triton solution: solutions-triton/$KERNEL.py" >&2; exit 2; }
+        [[ $BIG -eq 1 ]] && echo ">> benchmark sizes: $(bench_profile "$KERNEL")"
+        echo ">> running $KERNEL (Triton)"
+        run_exe "$KERNEL"
+        exit 0
+    fi
+    # all Triton solutions -> timing table (shared with the CUDA path below)
+    echo ">> running Triton solutions"
+else
+    command -v ninja >/dev/null || { echo "error: ninja not found (install ninja-build)" >&2; exit 1; }
 
-# ---- configure (Ninja) -----------------------------------------------------
-[[ $CLEAN -eq 1 ]] && rm -rf "$BUILD"
-if [[ -d "$BUILD" && ! -f "$BUILD/build.ninja" ]]; then
-    echo ">> existing non-Ninja build/ — reconfiguring clean"
-    rm -rf "$BUILD"
-fi
-if [[ ! -f "$BUILD/build.ninja" ]]; then
-    cfg=(-S . -B "$BUILD" -G Ninja)
-    [[ -n "$ARCH" ]] && cfg+=("-DCMAKE_CUDA_ARCHITECTURES=$ARCH")
-    echo ">> cmake ${cfg[*]}"
-    cmake "${cfg[@]}"
-fi
+    # ---- configure (Ninja) --------------------------------------------------
+    [[ $CLEAN -eq 1 ]] && rm -rf "$BUILD"
+    if [[ -d "$BUILD" && ! -f "$BUILD/build.ninja" ]]; then
+        echo ">> existing non-Ninja build/ — reconfiguring clean"
+        rm -rf "$BUILD"
+    fi
+    if [[ ! -f "$BUILD/build.ninja" ]]; then
+        cfg=(-S . -B "$BUILD" -G Ninja)
+        [[ -n "$ARCH" ]] && cfg+=("-DCMAKE_CUDA_ARCHITECTURES=$ARCH")
+        echo ">> cmake ${cfg[*]}"
+        cmake "${cfg[@]}"
+    fi
 
-# All harness names, sorted.
-mapfile -t KERNELS < <(for f in kernel-harnesses/*.cu; do basename "$f" .cu; done | sort)
+    # All harness names, sorted.
+    mapfile -t KERNELS < <(for f in kernel-harnesses/*.cu; do basename "$f" .cu; done | sort)
 
-# ---- list mode -------------------------------------------------------------
-if [[ "$ACTION" == list ]]; then
-    echo ">> harnesses (stub = solutions-cuda/<k>.cu not implemented):"
-    for k in "${KERNELS[@]}"; do
-        if is_stub "$k"; then printf '  %-28s (stub)\n' "$k"; else printf '  %s\n' "$k"; fi
-    done
-    exit 0
+    # ---- list mode ----------------------------------------------------------
+    if [[ "$ACTION" == list ]]; then
+        echo ">> harnesses (stub = solutions-cuda/<k>.cu not implemented):"
+        for k in "${KERNELS[@]}"; do
+            if is_stub "$k"; then printf '  %-28s (stub)\n' "$k"; else printf '  %s\n' "$k"; fi
+        done
+        exit 0
+    fi
 fi
 
 # ---- single kernel ---------------------------------------------------------
@@ -173,17 +202,20 @@ if [[ -n "$KERNEL" ]]; then
     exit 0
 fi
 
-# ---- all harnesses ---------------------------------------------------------
-echo ">> building all harnesses"
-cmake --build "$BUILD" --target harnesses
+# ---- all harnesses / all Triton solutions ----------------------------------
+if [[ $TRITON -eq 0 ]]; then
+    echo ">> building all harnesses"
+    cmake --build "$BUILD" --target harnesses
+fi
 [[ $BUILD_ONLY -eq 1 ]] && { echo ">> build-only; not running."; exit 0; }
 
-echo ">> running harnesses (this executes on the GPU)"
+echo ">> running (this executes on the GPU)"
 rows=""; ran=0; skipped=0; failed=0
 for k in "${KERNELS[@]}"; do
-    if [[ $INCLUDE_STUBS -eq 0 ]] && is_stub "$k"; then skipped=$((skipped+1)); continue; fi
-    exe="./$BUILD/bin/$k.exe"
-    [[ -x "$exe" ]] || { printf '  %-28s (no binary)\n' "$k"; failed=$((failed+1)); continue; }
+    if [[ $TRITON -eq 0 ]]; then
+        if [[ $INCLUDE_STUBS -eq 0 ]] && is_stub "$k"; then skipped=$((skipped+1)); continue; fi
+        [[ -x "./$BUILD/bin/$k.exe" ]] || { printf '  %-28s (no binary)\n' "$k"; failed=$((failed+1)); continue; }
+    fi
     out="$(run_exe "$k" 2>/dev/null || true)"
     ms="$(printf '%s' "$out" | grep -oiE 'Avg kernel time:[[:space:]]*[0-9.]+' | grep -oE '[0-9.]+' | head -1)"
     if [[ -n "$ms" ]]; then
