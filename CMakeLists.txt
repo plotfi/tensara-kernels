@@ -165,13 +165,10 @@ endforeach()
 endif() # HAVE_CUDA
 
 # ============================================================================
-# Metal backend (macOS only). Faithful port of build_metal.sh: compile the
-# harness .cu and the solutions-metal/<k>.cpp wrapper as C++ with metal-cpp,
-# link against Metal/Foundation, and stage the .metal shader + shared .metal.h
-# headers next to the binary for runtime load.
-#
-# NOTE: this branch is untested on Linux (no Metal toolchain here); verify on a
-# Mac. The CUDA build above is the tested path.
+# Metal backend (macOS only). Each solutions-metal/<k>.cpp embeds its shader
+# source via the METAL_KERNEL macro (raw string literal compiled at runtime).
+# Shared .metal.h headers are staged next to the binaries so the runtime
+# include inliner can resolve them.
 # ============================================================================
 if(APPLE)
     set(METAL_CPP ${REPO}/metal-cpp CACHE PATH "Path to metal-cpp headers")
@@ -180,7 +177,6 @@ if(APPLE)
 
     # Stage shared shader headers once.
     file(GLOB METAL_HDRS ${REPO}/kernel-implementation/*.metal.h)
-    add_custom_target(metal-headers)
     foreach(hdr ${METAL_HDRS})
         get_filename_component(hn ${hdr} NAME)
         add_custom_command(OUTPUT ${METAL_OUT}/${hn}
@@ -194,20 +190,17 @@ if(APPLE)
     file(GLOB _mh CONFIGURE_DEPENDS ${REPO}/kernel-harnesses/*.cu)
     foreach(h ${_mh})
         get_filename_component(k ${h} NAME_WE)
-        if(NOT EXISTS ${REPO}/solutions-metal/${k}.cpp OR
-           NOT EXISTS ${REPO}/solutions-metal/${k}.metal)
+        if(NOT EXISTS ${REPO}/solutions-metal/${k}.cpp)
             continue()
         endif()
         add_executable(metal-${k}
             ${REPO}/kernel-harnesses/${k}.cu
             ${REPO}/solutions-metal/${k}.cpp)
-        # Compile the .cu as C++ (Metal path is host-only C++ + metal-cpp).
         set_source_files_properties(
             ${REPO}/kernel-harnesses/${k}.cu ${REPO}/solutions-metal/${k}.cpp
             PROPERTIES LANGUAGE CXX)
         target_compile_options(metal-${k} PRIVATE -x c++)
         target_compile_definitions(metal-${k} PRIVATE TENSOR_METAL)
-        # Only the wrapper TU carries the metal-cpp implementation.
         set_source_files_properties(${REPO}/solutions-metal/${k}.cpp
             PROPERTIES COMPILE_DEFINITIONS TENSOR_METAL_IMPL)
         target_include_directories(metal-${k} PRIVATE ${METAL_CPP})
@@ -215,10 +208,6 @@ if(APPLE)
         set_target_properties(metal-${k} PROPERTIES
             OUTPUT_NAME ${k}
             RUNTIME_OUTPUT_DIRECTORY ${METAL_OUT})
-        # Copy the shader next to the binary; depend on staged headers.
-        add_custom_command(TARGET metal-${k} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    ${REPO}/solutions-metal/${k}.metal ${METAL_OUT}/${k}.metal)
         add_dependencies(metal-${k} metal-headers-stage)
         add_dependencies(metal metal-${k})
     endforeach()

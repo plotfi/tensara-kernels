@@ -4,7 +4,19 @@
 // over the output, mirroring the CUDA solution.
 #include "../tensor-lib/tensor.cuh"
 
+METAL_KERNEL("mxfp4-gemm", R"(
+// Metal shader stub for "mxfp4-gemm" (unimplemented). Fill in like the CUDA
+// solution once the algorithm exists; bind the same buffers/scalars in the
+// harness's Metal branch and dispatch over the output.
+#include <metal_stdlib>
+using namespace metal;
+
+kernel void solution(uint id [[thread_position_in_grid]]) {
+    // TODO: implement mxfp4-gemm
+}
+)");
+
 extern "C" void solution(const uint8_t* q_a, const uint8_t* scale_a, const uint8_t* q_b, const uint8_t* scale_b, float* c, size_t m, size_t n, size_t k) {
-    auto pso = tensor::pipeline("mxfp4-gemm");
+    auto pso = metal_pso();
     tensor::dispatch(pso, {}, 1);  // TODO: bind real buffers/scalars
 }

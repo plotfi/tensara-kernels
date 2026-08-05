@@ -4,7 +4,19 @@
 // over the output, mirroring the CUDA solution.
 #include "../tensor-lib/tensor.cuh"
 
+METAL_KERNEL("huber-loss", R"(
+// Metal shader stub for "huber-loss" (unimplemented). Fill in like the CUDA
+// solution once the algorithm exists; bind the same buffers/scalars in the
+// harness's Metal branch and dispatch over the output.
+#include <metal_stdlib>
+using namespace metal;
+
+kernel void solution(uint id [[thread_position_in_grid]]) {
+    // TODO: implement huber-loss
+}
+)");
+
 extern "C" void solution(const float* predictions, const float* targets, float* output, size_t n) {
-    auto pso = tensor::pipeline("huber-loss");
+    auto pso = metal_pso();
     tensor::dispatch(pso, {}, 1);  // TODO: bind real buffers/scalars
 }

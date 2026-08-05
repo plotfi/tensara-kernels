@@ -4,7 +4,19 @@
 // over the output, mirroring the CUDA solution.
 #include "../tensor-lib/tensor.cuh"
 
+METAL_KERNEL("argmax", R"(
+// Metal shader stub for "argmax" (unimplemented). Fill in like the CUDA
+// solution once the algorithm exists; bind the same buffers/scalars in the
+// harness's Metal branch and dispatch over the output.
+#include <metal_stdlib>
+using namespace metal;
+
+kernel void solution(uint id [[thread_position_in_grid]]) {
+    // TODO: implement argmax
+}
+)");
+
 extern "C" void solution(const float* input, int dim, int* output, const int* shape, int ndim) {
-    auto pso = tensor::pipeline("argmax");
+    auto pso = metal_pso();
     tensor::dispatch(pso, {}, 1);  // TODO: bind real buffers/scalars
 }

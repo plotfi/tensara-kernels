@@ -4,7 +4,19 @@
 // over the output, mirroring the CUDA solution.
 #include "../tensor-lib/tensor.cuh"
 
+METAL_KERNEL("mxfp8-quantize", R"(
+// Metal shader stub for "mxfp8-quantize" (unimplemented). Fill in like the CUDA
+// solution once the algorithm exists; bind the same buffers/scalars in the
+// harness's Metal branch and dispatch over the output.
+#include <metal_stdlib>
+using namespace metal;
+
+kernel void solution(uint id [[thread_position_in_grid]]) {
+    // TODO: implement mxfp8-quantize
+}
+)");
+
 extern "C" void solution(const float* a, uint8_t* q, uint8_t* scale, size_t m, size_t k) {
-    auto pso = tensor::pipeline("mxfp8-quantize");
+    auto pso = metal_pso();
     tensor::dispatch(pso, {}, 1);  // TODO: bind real buffers/scalars
 }
