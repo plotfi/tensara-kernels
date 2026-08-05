@@ -4,7 +4,19 @@
 // over the output, mirroring the CUDA solution.
 #include "../tensor-lib/tensor.cuh"
 
+METAL_KERNEL("ecc-point-negation", R"(
+// Metal shader stub for "ecc-point-negation" (unimplemented). Fill in like the CUDA
+// solution once the algorithm exists; bind the same buffers/scalars in the
+// harness's Metal branch and dispatch over the output.
+#include <metal_stdlib>
+using namespace metal;
+
+kernel void solution(uint id [[thread_position_in_grid]]) {
+    // TODO: implement ecc-point-negation
+}
+)");
+
 extern "C" void solution(const uint64_t* xs, const uint64_t* ys, uint64_t p, uint64_t* out_xy, size_t n) {
-    auto pso = tensor::pipeline("ecc-point-negation");
+    auto pso = metal_pso();
     tensor::dispatch(pso, {}, 1);  // TODO: bind real buffers/scalars
 }

@@ -1,8 +1,23 @@
 // Metal solution wrapper for "softmax". Reduces over the last (contiguous) axis.
 #include "../tensor-lib/tensor.cuh"
 
+METAL_KERNEL("softmax", R"(
+// Metal shader for "softmax" -- unified reduction kernel, op = SoftmaxOps.
+#include "reduction.metal.h"
+
+kernel void solution(device const float* X [[buffer(0)]],
+                     device float*       Y [[buffer(1)]],
+                     constant uint&      D [[buffer(2)]],
+                     uint tid [[thread_position_in_threadgroup]],
+                     uint row [[threadgroup_position_in_grid]],
+                     uint tpg [[threads_per_threadgroup]]) {
+    threadgroup float smem[256];
+    reduce_row<SoftmaxOps>(X, Y, D, tid, row, tpg, smem);
+}
+)");
+
 extern "C" void solution(const float* input, int dim, float* output, const size_t* shape, size_t ndim) {
-    auto pso = tensor::pipeline("softmax");
+    auto pso = metal_pso();
 
     // Same as the CUDA solution: get a host-readable view of the dimensions to
     // size the launch. Here tensor::to_host is a no-op returning `shape`

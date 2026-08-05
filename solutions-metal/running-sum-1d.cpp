@@ -4,7 +4,19 @@
 // over the output, mirroring the CUDA solution.
 #include "../tensor-lib/tensor.cuh"
 
+METAL_KERNEL("running-sum-1d", R"(
+// Metal shader stub for "running-sum-1d" (unimplemented). Fill in like the CUDA
+// solution once the algorithm exists; bind the same buffers/scalars in the
+// harness's Metal branch and dispatch over the output.
+#include <metal_stdlib>
+using namespace metal;
+
+kernel void solution(uint id [[thread_position_in_grid]]) {
+    // TODO: implement running-sum-1d
+}
+)");
+
 extern "C" void solution(const float* input, size_t W, float* output, size_t N) {
-    auto pso = tensor::pipeline("running-sum-1d");
+    auto pso = metal_pso();
     tensor::dispatch(pso, {}, 1);  // TODO: bind real buffers/scalars
 }

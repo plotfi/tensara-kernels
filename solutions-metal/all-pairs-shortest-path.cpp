@@ -4,7 +4,11 @@
 // over the output, mirroring the CUDA solution.
 #include "../tensor-lib/tensor.cuh"
 
+METAL_KERNEL("all-pairs-shortest-path", R"(
+
+)");
+
 extern "C" void solution(const float* adj_matrix, float* output, size_t n) {
-    auto pso = tensor::pipeline("all-pairs-shortest-path");
+    auto pso = metal_pso();
     tensor::dispatch(pso, {}, 1);  // TODO: bind real buffers/scalars
 }

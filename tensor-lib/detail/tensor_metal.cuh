@@ -179,24 +179,48 @@ inline void inline_metal_includes(const std::string& path, const std::string& di
     }
 }
 
-inline MTL::ComputePipelineState* compile_pipeline(const std::string& metal_path,
-                                                   const std::string& fn_name) {
+// Same as inline_metal_includes but reads from an in-memory string instead of
+// a file. Used when the shader source is embedded in the C++ wrapper.
+inline void inline_metal_includes_from_string(const std::string& source,
+                                              const std::string& dir,
+                                              std::set<std::string>& seen,
+                                              std::string& out) {
+    std::istringstream ss(source);
+    std::string line;
+    while (std::getline(ss, line)) {
+        size_t hp = line.find("#include");
+        size_t q1 = (hp == std::string::npos) ? std::string::npos : line.find('"', hp);
+        if (hp != std::string::npos && q1 != std::string::npos) {
+            size_t q2 = line.find('"', q1 + 1);
+            std::string inc = line.substr(q1 + 1, q2 - (q1 + 1));
+            if (seen.insert(inc).second)
+                inline_metal_includes(dir + "/" + inc, dir, seen, out);
+            continue;
+        }
+        out += line;
+        out += '\n';
+    }
+}
+
+inline MTL::ComputePipelineState* compile_shader(const std::string& source,
+                                                 const std::string& label,
+                                                 const std::string& fn_name) {
     std::set<std::string> seen;
     std::string src;
-    inline_metal_includes(metal_path, shader_dir(), seen, src);
+    inline_metal_includes_from_string(source, shader_dir(), seen, src);
 
     NS::Error* err = nullptr;
     NS::String* s = NS::String::string(src.c_str(), NS::UTF8StringEncoding);
     MTL::Library* lib = device()->newLibrary(s, nullptr, &err);
     if (!lib) {
-        fprintf(stderr, "tensor: shader compile failed (%s): %s\n", metal_path.c_str(),
+        fprintf(stderr, "tensor: shader compile failed (%s): %s\n", label.c_str(),
                 err->localizedDescription()->utf8String());
         std::exit(1);
     }
     NS::String* fn = NS::String::string(fn_name.c_str(), NS::UTF8StringEncoding);
     MTL::Function* func = lib->newFunction(fn);
     if (!func) {
-        fprintf(stderr, "tensor: kernel '%s' not found in %s\n", fn_name.c_str(), metal_path.c_str());
+        fprintf(stderr, "tensor: kernel '%s' not found in %s\n", fn_name.c_str(), label.c_str());
         std::exit(1);
     }
     MTL::ComputePipelineState* pso = device()->newComputePipelineState(func, &err);
@@ -207,6 +231,14 @@ inline MTL::ComputePipelineState* compile_pipeline(const std::string& metal_path
         std::exit(1);
     }
     return pso;
+}
+
+inline MTL::ComputePipelineState* compile_pipeline(const std::string& metal_path,
+                                                   const std::string& fn_name) {
+    std::set<std::string> seen;
+    std::string src;
+    inline_metal_includes(metal_path, shader_dir(), seen, src);
+    return compile_shader(src, metal_path, fn_name);
 }
 
 // Compile (once, cached) the pipeline for kernel function `solution` in
@@ -220,6 +252,35 @@ inline MTL::ComputePipelineState* pipeline(const std::string& name) {
     cache[name] = pso;
     return pso;
 }
+
+// Compile (once, cached) from an embedded shader source string. The `name` is
+// used only as a cache key and diagnostic label.
+inline MTL::ComputePipelineState* pipeline(const std::string& name,
+                                           const std::string& source) {
+    static std::map<std::string, MTL::ComputePipelineState*> cache;
+    auto it = cache.find(name);
+    if (it != cache.end()) return it->second;
+    MTL::ComputePipelineState* pso = compile_shader(source, name, "solution");
+    cache[name] = pso;
+    return pso;
+}
+
+// Embed a Metal shader as a C++ raw string literal and define a static
+// pipeline() accessor. Usage:
+//
+//   METAL_KERNEL("relu", R"(
+//       #include "activation.metal.h"
+//       kernel void solution(...) { ... }
+//   )");
+//
+//   void solution(...) {
+//       auto pso = metal_pso();
+//       tensor::dispatch(pso, ...);
+//   }
+#define METAL_KERNEL(name, source) \
+    static MTL::ComputePipelineState* metal_pso() { \
+        return tensor::pipeline(name, source); \
+    }
 
 // Wrap a scalar (int, float, size params, ...) as a (bytes, size) pair to bind
 // after the buffers. The referenced value must outlive the dispatch call.

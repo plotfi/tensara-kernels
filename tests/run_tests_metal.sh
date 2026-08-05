@@ -25,8 +25,8 @@ mkdir -p "$BINDIR"
 CXXFLAGS=(-std=c++17 -O2 -x c++ -DTENSOR_METAL -I tests/metal -I tensor-lib -I kernel-implementation -I"$METAL_CPP")
 LDFLAGS=(-framework Metal -framework Foundation)
 
-if [[ ! -d "$SHADER_DIR" ]] || [[ -z "$(ls "$SHADER_DIR"/*.metal 2>/dev/null)" ]]; then
-    echo "error: shader dir $SHADER_DIR is empty — run 'make metal' first." >&2
+if [[ ! -d "$SHADER_DIR" ]]; then
+    echo "error: shader dir $SHADER_DIR does not exist — build Metal targets first." >&2
     exit 1
 fi
 
@@ -137,8 +137,8 @@ for k in ${(ok)RUN_TESTS}; do
     flags="${entry#*|}"
     sol="solutions-metal/$k.cpp"
 
-    # Skip kernels whose Metal shader is a stub (empty or contains TODO marker).
-    if [[ ! -s "solutions-metal/$k.metal" ]] || grep -q "// TODO: implement" "solutions-metal/$k.metal" 2>/dev/null; then
+    # Skip kernels whose embedded shader is a stub (contains TODO marker).
+    if grep -q "// TODO:" "solutions-metal/$k.cpp" 2>/dev/null; then
         echo "  TODO  $k (stub shader)"; unimpl=$((unimpl+1)); continue
     fi
 
