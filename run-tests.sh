@@ -9,6 +9,7 @@
 #   ./run-tests.sh -l              # list available test names
 #   ./run-tests.sh -b              # build the tests, don't run them
 #   ./run-tests.sh -b huber-loss   # build just that test, don't run it
+#   ./run-tests.sh -T [kernel]     # TRITON: check solutions-triton/*.py (--check vs torch ref)
 #   ./run-tests.sh -a 89 ...       # set CMAKE_CUDA_ARCHITECTURES (default: native)
 #   ./run-tests.sh -c ...          # clean-reconfigure first (rm -rf build)
 #
@@ -24,8 +25,11 @@ BUILD=build
 ARCH=""
 BUILD_ONLY=0
 CLEAN=0
+TRITON=0
+ACTION=run
+PYVENV=.venv/bin/python
 
-usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 # ---- args ------------------------------------------------------------------
 KERNEL=""
@@ -35,12 +39,35 @@ while [[ $# -gt 0 ]]; do
         -l|--list)  ACTION=list ;;
         -b|--build-only) BUILD_ONLY=1 ;;
         -c|--clean) CLEAN=1 ;;
+        -T|--triton) TRITON=1 ;;
         -a|--arch)  ARCH="$2"; shift ;;
         -*)         echo "unknown option: $1" >&2; usage 1 ;;
         *)          KERNEL="$1" ;;
     esac
     shift
 done
+
+# ---- Triton backend: check solutions-triton/*.py against a torch reference ---
+if [[ $TRITON -eq 1 ]]; then
+    [[ -x "$PYVENV" ]] || { echo "error: $PYVENV not found — create the venv (see README Triton section)" >&2; exit 1; }
+    mapfile -t TKS < <(for f in solutions-triton/*.py; do [[ -e "$f" ]] && basename "$f" .py; done | sort)
+    if [[ "$ACTION" == list ]]; then
+        echo ">> Triton solutions:"; printf '  %s\n' "${TKS[@]}"; exit 0
+    fi
+    [[ -n "$KERNEL" ]] && TKS=("$KERNEL")
+    pass=0; fail=0
+    for k in "${TKS[@]}"; do
+        [[ -f "solutions-triton/$k.py" ]] || { echo "  no Triton solution: $k"; fail=$((fail+1)); continue; }
+        if "$PYVENV" "solutions-triton/$k.py" --check >/tmp/tt.$$ 2>/dev/null && grep -q "^PASS:" /tmp/tt.$$; then
+            echo "  PASS  $k"; pass=$((pass+1))
+        else
+            echo "  FAIL  $k"; fail=$((fail+1))
+        fi
+    done
+    rm -f /tmp/tt.$$
+    echo ">> triton: $pass passed, $fail failed"
+    exit $(( fail > 0 ? 1 : 0 ))
+fi
 
 command -v ninja >/dev/null || { echo "error: ninja not found (install ninja-build)" >&2; exit 1; }
 

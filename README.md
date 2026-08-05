@@ -8,6 +8,7 @@ CUDA kernel implementations with performance-measuring harnesses. Each harness r
 kernel-harnesses/              # One backend-agnostic .cu harness per kernel problem
 solutions-cuda/                # Per kernel: <k>.cu (CUDA solution)
 solutions-metal/               # Per kernel: <k>.cpp + <k>.metal (Metal wrapper + shader)
+solutions-triton/              # Per kernel: <k>.py (@triton.jit kernel; Python harness)
 kernel-implementation/         # Shared: harness.cuh (+ detail/ backends), reduction.cuh, activation.cuh
 tests/                         # Correctness tests (CPU reference vs. GPU)
 CMakeLists.txt                 # Build system (CUDA harnesses + tests via CTest; Metal on macOS)
@@ -308,6 +309,45 @@ To add a test: copy the closest `tests/test-<kernel>.cu`, declare
 `tests/run_tests.sh` via its `TESTS` map); a test that shares a grouped source
 with a `-D` flag needs an `add_kernel_test(...)` line in `CMakeLists.txt`. Each
 test links `solutions-cuda/<kernel>.cu` automatically.
+
+## Triton backend (experimental)
+
+Triton kernels live in `solutions-triton/<kernel>.py` and run through a Python
+harness (`tensor-lib/triton_bench.py`) that mirrors the C++ conventions — same
+kernel names, the same `TENSOR_SCALE` / `TENSOR_<DIM>` size knobs, the same
+`-B` benchmark profile, and the same `Avg kernel time: …` output — so a Triton
+run drops into the exact same tables and comparisons as the CUDA backend.
+
+Triton is Python + JIT, so (unlike Metal) it can't expose the C `solution()`
+ABI; instead it's driven as a parallel backend. Set up the venv once:
+
+```bash
+uv venv --python 3.12 .venv          # or: python3.12 -m venv .venv
+uv pip install --python .venv/bin/python torch triton numpy
+```
+
+Then use the `-T` flag on either runner:
+
+```bash
+./run-bench.sh  -T -B                 # benchmark all Triton solutions (sized)
+./run-bench.sh  -T -B vector-addition # one kernel
+./run-tests.sh  -T                    # correctness vs a torch reference
+./run-tests.sh  -T relu               # one kernel
+./run-bench.sh  -T -l                 # list Triton solutions
+```
+
+CUDA-vs-Triton is then a one-liner comparison at matched sizes:
+
+```
+vector-addition   CUDA 1.75 ms   Triton 1.85 ms
+relu              CUDA 1.21 ms   Triton 1.23 ms    # both bandwidth-bound
+```
+
+A `solutions-triton/<k>.py` defines its `@triton.jit` kernel, a `solution(...)`
+(same arg shape as the CUDA one), and a `main(check)` that sizes inputs via
+`triton_bench.bench_size(...)`, benchmarks, and — under `--check` — compares to a
+torch reference. Correctness references are duplicated in torch here (the CUDA
+side uses the C++ `tests/`); most are one-liners (`torch.relu`, …).
 
 ## Adding a New Kernel
 

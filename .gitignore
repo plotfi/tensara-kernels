@@ -6,3 +6,8 @@ build/
 # Editor scratch
 *.swp
 *~
+
+# Python / Triton
+.venv/
+__pycache__/
+*.pyc
