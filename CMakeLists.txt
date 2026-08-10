@@ -19,6 +19,10 @@
 cmake_minimum_required(VERSION 3.24)
 project(kernel_benchmarks LANGUAGES CXX)
 
+# Emit build/compile_commands.json (clangd / editor tooling). Ninja & Makefile
+# generators honor this.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # --- standards / flags (match the old NVCCFLAGS: -O2 -std=c++17) -------------
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
