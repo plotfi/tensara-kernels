@@ -8,13 +8,6 @@
 #include "../tensor-lib/tensor.cuh"
 #include "../kernel-implementation/loss.cuh"
 
-struct MseLossImpl {
-  __device__ __forceinline__ static float apply(float x, float y) {
-    float a = x - y;
-    return a * a;
-  }
-};
-
 // Note: all pointer arguments are device pointers.
 extern "C" void solution(const float *predictions, const float *targets,
                          float *output, const size_t *shape, size_t ndim) {
