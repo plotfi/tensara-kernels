@@ -18,7 +18,8 @@ extern "C" void solution(const float* input, int dim, float* output,
     int D = static_cast<int>(s[dim]);
     size_t rows = 1;
     for (size_t i = 0; i < nd; ++i)
-        if (i != static_cast<size_t>(dim)) rows *= s[i];
+      if (i != static_cast<size_t>(dim))
+        rows *= s[i];
 
     launch_reduce<SoftmaxOps, 256>(input, output, static_cast<int>(rows), D);
 }
