@@ -19,3 +19,10 @@ struct MseLossImpl {
     return a * a;
   }
 };
+
+struct KLLossImpl {
+  // x = prediction (p), y = target (t):  t * (log t - log p)
+  __device__ __forceinline__ static float apply(float x, float y) {
+    return y * (__logf(y) - __logf(x));
+  }
+};

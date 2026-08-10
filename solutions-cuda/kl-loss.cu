@@ -2,13 +2,6 @@
 // Inputs are strictly positive. Uses the shared loss + block-reduction framework.
 #include "../kernel-implementation/loss.cuh"
 
-struct KLLossImpl {
-  // x = prediction (p), y = target (t):  t * (log t - log p)
-  __device__ __forceinline__ static float apply(float x, float y) {
-    return y * (__logf(y) - __logf(x));
-  }
-};
-
 // Note: all pointer arguments are device pointers.
 extern "C" void solution(const float* predictions, const float* targets, float* output, size_t n) {
   launch_block_reduce<KLLossImpl, reduce_sum, /*BLOCK_SIZE=*/512>(predictions, targets, output, n);
