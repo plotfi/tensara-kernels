@@ -1,6 +1,7 @@
 #include "../tensor-lib/tensor.cuh"
 #include "../kernel-implementation/cutil_math_min.cuh"   // float3 ops (host) for the camera
 #include <vector>
+#include <cstdio>
 
 // CS4803 Lab 4 — CUDA ray tracer. Renders a small hardcoded scene (floor quad +
 // a standing reflective triangle, lit by a point light drawn as a sphere) into a
@@ -62,5 +63,22 @@ int main() {
     BENCHMARK(solution(tris, out, w, h, n_tris, a, b, c, campos, light_pos, light_color, amin, amax));
 
     out.preview("image");
+
+    // Dump the rendered image as a binary PPM (P6) so it can actually be viewed.
+    // out.host holds the full image (preview() copied device->host).
+    const char* path = "cs4803dgc-lab4-raytracer.ppm";
+    if (FILE* f = fopen(path, "wb")) {
+        fprintf(f, "P6\n%d %d\n255\n", w, h);
+        for (int i = 0; i < w * h; i++) {
+            unsigned int v = out.host[i];              // packed 0xRRGGBB
+            unsigned char rgb[3] = { (unsigned char)((v >> 16) & 0xff),
+                                     (unsigned char)((v >> 8) & 0xff),
+                                     (unsigned char)(v & 0xff) };
+            fwrite(rgb, 1, 3, f);
+        }
+        fclose(f);
+        printf("wrote %s (%dx%d)\n", path, w, h);
+    }
+
     tensor::end();
 }

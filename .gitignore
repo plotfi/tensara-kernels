@@ -12,3 +12,7 @@ build/
 __pycache__/
 *.pyc
 compile_commands.json
+
+# raytracer renders
+*.ppm
+*.png
