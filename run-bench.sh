@@ -99,6 +99,9 @@ bench_profile() {
         # softmax family (rows M × reduced dim N). dim-reduce kernels are stubs
         # and still size via a fixed shape array — they'll need the same wiring.
         softmax|log-softmax) echo "TENSOR_M=65536 TENSOR_N=1024" ;;
+        # mse-loss reduces over M*N (rows*cols) to a scalar; set both dims so the
+        # default (N only) doesn't leave M=64 or blow up memory.
+        mse-loss) echo "TENSOR_M=8192 TENSOR_N=8192" ;;
         # distances / margin losses over rows×cols
         triplet-margin) echo "TENSOR_B=8192 TENSOR_E=8192" ;;
         # graphs (O(n^2)/O(n^3)) — keep moderate
